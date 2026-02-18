@@ -652,6 +652,7 @@ async function startQasimDev() {
             }
 
             if (connection == "open") {
+                global.botConnectedTime = Date.now(); // Track connection time for old message filtering
                 printLog('success', 'Bot connected successfully!');
                 const { startAutoBio } = require('./plugins/a-setbio');
                 startAutoBio(QasimDev);
@@ -804,6 +805,69 @@ setInterval(() => {
     });
     //  console.log('🧹 Temp folder auto-cleaned');
 }, 1 * 60 * 60 * 1000);
+
+// Auto-clear session files every 3 minutes to prevent memory leaks and encryption conflicts
+setInterval(() => {
+    try {
+        const sessionDir = path.join(process.cwd(), 'session');
+        if (!fs.existsSync(sessionDir)) return;
+
+        const files = fs.readdirSync(sessionDir);
+        let clearedCount = 0;
+
+        for (const file of files) {
+            if (file === 'creds.json') continue; // Never delete creds
+            try {
+                fs.unlinkSync(path.join(sessionDir, file));
+                clearedCount++;
+            } catch { }
+        }
+
+        if (clearedCount > 0) {
+            console.log(chalk.gray(`🧹 Auto-cleared ${clearedCount} session files`));
+        }
+    } catch (err) {
+        // Silently fail, not critical
+    }
+}, 3 * 60 * 1000); // Every 3 minutes (2-4 minute range as requested)
+
+// CPU throttling detection and monitoring
+setInterval(() => {
+    try {
+        const os = require('os');
+        const cpus = os.cpus();
+        if (!cpus || cpus.length === 0) return;
+
+        let totalIdle = 0;
+        let totalTick = 0;
+
+        for (const cpu of cpus) {
+            for (const type in cpu.times) {
+                totalTick += cpu.times[type];
+            }
+            totalIdle += cpu.times.idle;
+        }
+
+        const cpuUsage = 100 - ~~(100 * totalIdle / totalTick);
+
+        // Log if CPU is above 85% (significant throttling risk)
+        if (cpuUsage > 85) {
+            console.warn(chalk.yellow(`⚠️  HIGH CPU USAGE: ${cpuUsage}% - Server may be throttling performance`));
+        }
+
+        // Check for system slowness indicators every 2 minutes
+        if (!global.cpuMonitor) global.cpuMonitor = { counts: [] };
+        global.cpuMonitor.counts.push(cpuUsage);
+        if (global.cpuMonitor.counts.length > 10) global.cpuMonitor.counts.shift();
+
+        const avgCpu = global.cpuMonitor.counts.reduce((a, b) => a + b, 0) / global.cpuMonitor.counts.length;
+        if (avgCpu > 80 && global.cpuMonitor.counts.length === 10) {
+            console.warn(chalk.red(`🔥 SUSTAINED HIGH CPU: ${avgCpu.toFixed(1)}% average - Bot may be CPU-throttled on this server`));
+        }
+    } catch (err) {
+        // Silently ignore CPU monitoring errors
+    }
+}, 2 * 60 * 1000); // Every 2 minutes
 
 const folders = [
     path.join(__dirname, './lib'),
