@@ -297,6 +297,29 @@ function hasValidSession() {
     }
 }
 
+async function getPresenceConfig() {
+    const envValue = await store.getEnvBackedSetting('ALWAYS_ONLINE', 'false');
+    const envDefault = (envValue && String(envValue).toLowerCase() === 'true');
+    const existing = await store.getSetting('global', 'presenceConfig');
+
+    if (!existing || typeof existing.alwaysOnline !== 'boolean') {
+        const initial = { alwaysOnline: envDefault };
+        await store.saveSetting('global', 'presenceConfig', initial);
+        return initial;
+    }
+
+    return { alwaysOnline: !!existing.alwaysOnline };
+}
+
+async function isAlwaysOnlineEnabled() {
+    try {
+        const config = await getPresenceConfig();
+        return !!config.alwaysOnline;
+    } catch {
+        return false;
+    }
+}
+
 async function initializeSession() {
     ensureSessionDirectory();
 
@@ -410,11 +433,21 @@ async function startQasimDev() {
         const originalSendReadReceipt = QasimDev.sendReadReceipt;
 
         QasimDev.sendPresenceUpdate = async function (...args) {
+            const [presenceType, jid] = args;
             const ghostMode = await store.getSetting('global', 'stealthMode');
             if (ghostMode && ghostMode.enabled) {
                 printLog('info', '👻 Blocked presence update (stealth mode)');
                 return;
             }
+
+            const alwaysOnline = await isAlwaysOnlineEnabled();
+            if (alwaysOnline && !jid) {
+                const state = String(presenceType || '').toLowerCase();
+                if (state === 'unavailable') {
+                    return originalSendPresenceUpdate.call(this, 'available');
+                }
+            }
+
             return originalSendPresenceUpdate.apply(this, args);
         };
 
@@ -656,11 +689,27 @@ async function startQasimDev() {
                 printLog('success', 'Bot connected successfully!');
                 const { startAutoBio } = require('./plugins/a-setbio');
                 startAutoBio(QasimDev);
-                const ghostMode = await store.getSetting('global', 'stealthMode');
-                if (ghostMode && ghostMode.enabled) {
-                    printLog('info', '👻 STEALTH MODE ACTIVE - Bot is in stealth mode');
-                    console.log(chalk.gray('• No online status'));
-                    console.log(chalk.gray('• No typing indicators'));
+                const presenceConfig = await getPresenceConfig();
+                if (presenceConfig.alwaysOnline && !(ghostMode && ghostMode.enabled)) {
+                    try {
+                        await originalSendPresenceUpdate.call(QasimDev, 'available');
+                    } catch (error) {
+                        printLog('warning', `Failed to set initial always-online presence: ${error.message}`);
+                    }
+
+                    setInterval(async () => {
+                        try {
+                            const currentGhostMode = await store.getSetting('global', 'stealthMode');
+                            if (currentGhostMode && currentGhostMode.enabled) return;
+
+                            const currentPresenceConfig = await getPresenceConfig();
+                            if (!currentPresenceConfig.alwaysOnline) return;
+
+                            await originalSendPresenceUpdate.call(QasimDev, 'available');
+                        } catch {}
+                    }, 45 * 1000);
+
+                    printLog('presence', 'Always online presence heartbeat enabled');
                 }
 
                 // console.log(chalk.yellow(`🌿Connected to => ` + JSON.stringify(QasimDev.user, null, 2))); // Verbose
