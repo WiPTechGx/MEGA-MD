@@ -767,7 +767,7 @@ async function startQasimDev() {
                 // console.log(chalk.magenta(`\n${global.themeemoji || '•'} YT CHANNEL: pgwiz`));
                 // console.log(chalk.magenta(`${global.themeemoji || '•'} GITHUB: pgwiz`));
                 // console.log(chalk.magenta(`${global.themeemoji || '•'} WA NUMBER: ${owner}`));
-                // console.log(chalk.magenta(`${global.themeemoji || '•'} CREDIT: Qasim Ali`));
+                // console.log(chalk.magenta(`${global.themeemoji || '•'} CREDIT: pgwiz`));
                 // console.log(chalk.green(`${global.themeemoji || '•'} 🤖 Bot Connected Successfully! ✅`));
                 // console.log(chalk.blue(`Bot Version: ${settings.version}`));
                 // console.log(chalk.cyan(`Loaded Commands: ${commandHandler.commands.size}`));
