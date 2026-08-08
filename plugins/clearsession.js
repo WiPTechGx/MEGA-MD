@@ -8,7 +8,7 @@ const channelInfo = {
     forwardingScore: 999,
     isForwarded: true,
     forwardedNewsletterMessageInfo: {
-      newsletterJid: settings.newsletterJid || '120363319098372999@newsletter',
+      newsletterJid: settings.newsletterJid || '120363179639202475@newsletter',
       newsletterName: settings.newsletterName || 'PGWIZ-MD',
       serverMessageId: -1
     }
