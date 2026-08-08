@@ -29,6 +29,27 @@ async function tryRequest(getter, attempts = 3) {
   throw lastError;
 }
 
+const API_BASE = 'https://ytsp-api.pgwiz.cloud';
+
+async function getYtspVideoByUrl(youtubeUrl) {
+  const videoId = (youtubeUrl.match(/(?:youtu\.be\/|v=)([a-zA-Z0-9_-]{11})/) || [])[1];
+  let res;
+  if (videoId) {
+    res = await tryRequest(() => axios.get(`${API_BASE}/stream/${videoId}`, AXIOS_DEFAULTS));
+  } else {
+    res = await tryRequest(() => axios.get(`${API_BASE}/get?ytl=${encodeURIComponent(youtubeUrl)}`, AXIOS_DEFAULTS));
+  }
+  const data = res.data;
+  const downloadUrl = data.streamUrl || data.url || (data.proxy_url ? `${API_BASE}${data.proxy_url}` : null);
+  if (downloadUrl) {
+    return {
+      download: downloadUrl.startsWith('http') ? downloadUrl : `${API_BASE}${downloadUrl}`,
+      title: data.title
+    };
+  }
+  throw new Error('YTSP API returned no stream URL');
+}
+
 async function getIzumiVideoByUrl(youtubeUrl) {
   const apiUrl = `${izumi.baseURL}/downloader/youtube?url=${encodeURIComponent(
     youtubeUrl
@@ -134,9 +155,13 @@ module.exports = {
 
       let videoData;
       try {
-        videoData = await getIzumiVideoByUrl(videoUrl);
-      } catch {
-        videoData = await getOkatsuVideoByUrl(videoUrl);
+        videoData = await getYtspVideoByUrl(videoUrl);
+      } catch (e1) {
+        try {
+          videoData = await getIzumiVideoByUrl(videoUrl);
+        } catch {
+          videoData = await getOkatsuVideoByUrl(videoUrl);
+        }
       }
 
       await sock.sendMessage(

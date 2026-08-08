@@ -1,7 +1,7 @@
 const axios = require('axios');
 const fs = require('fs');
 
-const API_BASE = 'https://api3.wpg.qzz.io';
+const API_BASE = 'https://ytsp-api.pgwiz.cloud';
 const AXIOS_TIMEOUT = 60000;
 
 // Store pending searches: chatId -> [results]
@@ -56,14 +56,17 @@ async function handleSongSelection(sock, chatId, senderId, text, message) {
         });
 
         if (getRes.data) {
-          const tracks = getRes.data.tracks;
+          const data = getRes.data;
+          const tracks = data.tracks;
           if (tracks && tracks.length > 0) {
             streamData = tracks[0];
-          } else if (getRes.data.url) {
-            streamData = getRes.data;
+          } else {
+            streamData = data;
           }
 
           if (streamData) {
+            const rawUrl = streamData.streamUrl || streamData.url || (streamData.proxy_url ? `${API_BASE}${streamData.proxy_url}` : null);
+            if (rawUrl) streamData.downloadUrl = rawUrl.startsWith('http') ? rawUrl : `${API_BASE}${rawUrl}`;
             if (streamData.title) videoInfo.title = streamData.title;
             if (streamData.thumbnail) videoInfo.thumbnail = streamData.thumbnail;
             break;
@@ -76,7 +79,7 @@ async function handleSongSelection(sock, chatId, senderId, text, message) {
       }
     }
 
-    if (!streamData || !streamData.url) {
+    if (!streamData || !streamData.downloadUrl) {
       throw new Error('Failed to extract stream URL');
     }
 
@@ -98,7 +101,7 @@ async function handleSongSelection(sock, chatId, senderId, text, message) {
     // Download to Buffer
     const audioStream = await axios({
       method: 'GET',
-      url: streamData.url,
+      url: streamData.downloadUrl,
       responseType: 'arraybuffer',
       timeout: AXIOS_TIMEOUT,
       headers: {

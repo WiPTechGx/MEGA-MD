@@ -59,35 +59,46 @@ module.exports = {
 
       await new Promise(resolve => setTimeout(resolve, 2000));
 
-      const apiUrl = `https://youtube-main-phi.vercel.app/api/dl/ytmp4?apikey=ruhend&url=${encodeURIComponent(url)}&format=${quality}`;
-      const response = await axios.get(apiUrl, { timeout: 60000 });
+      const API_BASE = 'https://ytsp-api.pgwiz.cloud';
+      let title = '';
+      let downloadUrl = '';
+      let duration = 'N/A';
+      let actualQuality = quality;
 
-      if (!response.data?.result?.result || !response.data.status) {
-        return await sock.sendMessage(chatId, {
-          text: "❌ *Download failed!*\n\nThe API couldn't process this video."
-        }, { quoted: message });
+      try {
+        const res = await axios.get(`${API_BASE}/stream/${videoId}`, { timeout: 30000 });
+        if (res.data) {
+          title = res.data.title || 'Video';
+          duration = res.data.duration || 'N/A';
+          const rawUrl = res.data.streamUrl || res.data.url || (res.data.proxy_url ? `${API_BASE}${res.data.proxy_url}` : null);
+          if (rawUrl) downloadUrl = rawUrl.startsWith('http') ? rawUrl : `${API_BASE}${rawUrl}`;
+        }
+      } catch (e1) {
+        // Fallback
+        const apiUrl = `https://youtube-main-phi.vercel.app/api/dl/ytmp4?apikey=ruhend&url=${encodeURIComponent(url)}&format=${quality}`;
+        const response = await axios.get(apiUrl, { timeout: 60000 });
+        if (response.data?.result?.result?.download) {
+          const videoData = response.data.result.result;
+          title = videoData.title;
+          downloadUrl = videoData.download;
+          duration = videoData.duration;
+          actualQuality = videoData.quality || quality;
+        }
       }
 
-      const videoData = response.data.result.result;
-      
-      if (!videoData.downloaded || !videoData.download) {
+      if (!downloadUrl) {
         return await sock.sendMessage(chatId, {
-          text: "❌ *Video not available for download!*"
+          text: "❌ *Download failed!*\n\nCould not extract stream link."
         }, { quoted: message });
       }
-
-      const title = videoData.title;
-      const downloadUrl = videoData.download;
-      const duration = videoData.duration;
-      const actualQuality = videoData.quality;
 
       await sock.sendMessage(chatId, {
-        text: `📥 *Downloading...*\n\n🎬 *${title}*\n⏱️ Duration: ${duration}s\n🎥 Quality: ${actualQuality}p`
+        text: `📥 *Downloading...*\n\n🎬 *${title}*\n⏱️ Duration: ${duration}\n🎥 Quality: ${actualQuality}p`
       }, { quoted: message });
 
       await sock.sendMessage(chatId, {
         video: { url: downloadUrl },
-        caption: `🎬 *${title}*\n\n⏱️ *Duration:* ${duration}s\n🎥 *Quality:* ${actualQuality}p`,
+        caption: `🎬 *${title}*\n\n⏱️ *Duration:* ${duration}\n🎥 *Quality:* ${actualQuality}p`,
         mimetype: 'video/mp4',
         fileName: `${title}.mp4`
       }, { quoted: message });
