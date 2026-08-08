@@ -446,6 +446,11 @@ async function startQasimDev() {
                 if (state === 'unavailable') {
                     return originalSendPresenceUpdate.call(this, 'available');
                 }
+            } else if (!alwaysOnline && !jid) {
+                const state = String(presenceType || '').toLowerCase();
+                if (state === 'available') {
+                    return originalSendPresenceUpdate.call(this, 'unavailable');
+                }
             }
 
             return originalSendPresenceUpdate.apply(this, args);
@@ -710,6 +715,10 @@ async function startQasimDev() {
                     }, 45 * 1000);
 
                     printLog('presence', 'Always online presence heartbeat enabled');
+                } else if (!ghostMode || !ghostMode.enabled) {
+                    try {
+                        await originalSendPresenceUpdate.call(QasimDev, 'unavailable');
+                    } catch (error) {}
                 }
 
                 // console.log(chalk.yellow(`🌿Connected to => ` + JSON.stringify(QasimDev.user, null, 2))); // Verbose
