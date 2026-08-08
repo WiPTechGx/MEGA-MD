@@ -40,7 +40,7 @@ async function getYtspVideoByUrl(youtubeUrl) {
     res = await tryRequest(() => axios.get(`${API_BASE}/get?ytl=${encodeURIComponent(youtubeUrl)}`, AXIOS_DEFAULTS));
   }
   const data = res.data;
-  const downloadUrl = data.streamUrl || data.url || (data.proxy_url ? `${API_BASE}${data.proxy_url}` : null);
+  const downloadUrl = (data.proxy_url ? (data.proxy_url.startsWith('http') ? data.proxy_url : `${API_BASE}${data.proxy_url}`) : null) || data.streamUrl || data.url;
   if (downloadUrl) {
     return {
       download: downloadUrl.startsWith('http') ? downloadUrl : `${API_BASE}${downloadUrl}`,

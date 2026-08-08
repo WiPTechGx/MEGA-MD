@@ -65,7 +65,7 @@ async function handleSongSelection(sock, chatId, senderId, text, message) {
           }
 
           if (streamData) {
-            const rawUrl = streamData.streamUrl || streamData.url || (streamData.proxy_url ? `${API_BASE}${streamData.proxy_url}` : null);
+            const rawUrl = (streamData.proxy_url ? (streamData.proxy_url.startsWith('http') ? streamData.proxy_url : `${API_BASE}${streamData.proxy_url}`) : null) || streamData.streamUrl || streamData.url;
             if (rawUrl) streamData.downloadUrl = rawUrl.startsWith('http') ? rawUrl : `${API_BASE}${rawUrl}`;
             if (streamData.title) videoInfo.title = streamData.title;
             if (streamData.thumbnail) videoInfo.thumbnail = streamData.thumbnail;

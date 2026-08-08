@@ -70,7 +70,7 @@ module.exports = {
         if (res.data) {
           title = res.data.title || 'Video';
           duration = res.data.duration || 'N/A';
-          const rawUrl = res.data.streamUrl || res.data.url || (res.data.proxy_url ? `${API_BASE}${res.data.proxy_url}` : null);
+          const rawUrl = (res.data.proxy_url ? (res.data.proxy_url.startsWith('http') ? res.data.proxy_url : `${API_BASE}${res.data.proxy_url}`) : null) || res.data.streamUrl || res.data.url;
           if (rawUrl) downloadUrl = rawUrl.startsWith('http') ? rawUrl : `${API_BASE}${rawUrl}`;
         }
       } catch (e1) {
