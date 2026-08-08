@@ -17,7 +17,11 @@ function parseEnvBoolean(value, fallback) {
 }
 
 async function getDefaultAlwaysOnlineEnabled() {
-    const rawValue = await store.getEnvBackedSetting('ALWAYS_ONLINE', 'false');
+    if (store && typeof store.getEnvBackedSetting === 'function') {
+        const rawValue = await store.getEnvBackedSetting('ALWAYS_ONLINE', 'false');
+        return parseEnvBoolean(rawValue, false);
+    }
+    const rawValue = process.env.ALWAYS_ONLINE;
     return parseEnvBoolean(rawValue, false);
 }
 
