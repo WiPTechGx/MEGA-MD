@@ -57,7 +57,6 @@
     "better-sqlite3": "^12.5.0",
     "chalk": "^4.1.2",
     "cheerio": "^1.0.0-rc.12",
-    
     "dotenv": "^16.4.5",
     "express": "^4.22.1",
     "file-type": "^16.5.4",
@@ -99,12 +98,15 @@
   },
   "contributors": [
     {
-      "name": "Qasim Ali",
+      "name": "pgwiz",
       "role": "Lead Developer"
     },
     {
       "name": "pgwiz",
       "role": "Maintainer"
     }
-  ]
+  ],
+  "devDependencies": {
+    "javascript-obfuscator": "^5.5.0"
+  }
 }

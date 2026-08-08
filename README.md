@@ -240,9 +240,9 @@ If you like this project, please give it a [⭐️ star on GitHub](https://githu
 
 ## Credits
 
-| [![Qasim Ali](https://github.com/pgwiz.png?size=100)](https://github.com/pgwiz) | [![WhiskeySockets](https://github.com/WhiskeySockets.png?size=100)](https://github.com/WhiskeySockets) |
+| [![pgwiz](https://github.com/pgwiz.png?size=100)](https://github.com/pgwiz) | [![WhiskeySockets](https://github.com/WhiskeySockets.png?size=100)](https://github.com/WhiskeySockets) |
 | --- | --- 
-| [Qasim Ali](https://github.com/pgwiz) |[WhiskeySockets](https://github.com/WhiskeySockets) |
+| [pgwiz](https://github.com/pgwiz) |[WhiskeySockets](https://github.com/WhiskeySockets) |
 
 ---
 

@@ -10,8 +10,6 @@ baileys_store.db-wal
 baileys_store.db-shm
 
 # Runtime data
-tmp/
-temp/
 
 # Session files
 session/
