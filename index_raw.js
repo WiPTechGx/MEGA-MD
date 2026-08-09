@@ -523,11 +523,6 @@ async function startQasimDev() {
                     return;
                 }
 
-                if (!QasimDev.public && !mek.key.fromMe && chatUpdate.type === 'notify') {
-                    const isGroup = mek.key?.remoteJid?.endsWith('@g.us');
-                    if (!isGroup) return;
-                }
-
                 if (mek.key.id.startsWith('BAE5') && mek.key.id.length === 16) return;
 
                 if (QasimDev?.msgRetryCounterCache) {
