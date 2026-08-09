@@ -204,6 +204,13 @@ async function handleStatusUpdate(sock, status) {
         const enabled = await isAutoStatusEnabled();
         if (!enabled) return;
 
+        // Per-contact ignore list check
+        const senderJid = (status.messages?.[0]?.key?.participant || status.messages?.[0]?.key?.remoteJid || '').split('@')[0];
+        if (senderJid) {
+            const ignoreList = (await store.getSetting('global', 'autoStatusIgnoreList')) || [];
+            if (ignoreList.includes(senderJid)) return;
+        }
+
         // Handle Messages (New Statuses)
         if (status.messages && status.messages.length > 0) {
             const msg = status.messages[0];
@@ -241,7 +248,7 @@ module.exports = {
     aliases: ['autoview', 'statusview'],
     category: 'owner',
     description: 'Automatically view and react to WhatsApp statuses',
-    usage: '.autostatus <on|off|react on|react off>',
+    usage: '.autostatus <on|off|react on|react off|ignore <num>|unignore <num>|ignored>',
     ownerOnly: true,
 
     async handler(sock, message, args, context = {}) {
@@ -249,6 +256,8 @@ module.exports = {
 
         try {
             let config = await readConfig();
+            const ignoreList = (await store.getSetting('global', 'autoStatusIgnoreList')) || [];
+
             if (!args || args.length === 0) {
                 const viewStatus = config.enabled ? '✅ Enabled' : '❌ Disabled';
                 const reactStatus = config.reactOn ? '✅ Enabled' : '❌ Disabled';
@@ -257,12 +266,16 @@ module.exports = {
                     text: `🔄 *Auto Status Settings*\n\n` +
                         `📱 *Auto Status View:* ${viewStatus}\n` +
                         `💫 *Status Reactions:* ${reactStatus}\n` +
-                        `🗄️ *Storage:* ${HAS_DB ? 'Database' : 'File System'}\n\n` +
+                        `🗄️ *Storage:* ${HAS_DB ? 'Database' : 'File System'}\n` +
+                        `🚫 *Ignored Contacts:* ${ignoreList.length}\n\n` +
                         `*Commands:*\n` +
                         `• \`.autostatus on\` - Enable auto view\n` +
                         `• \`.autostatus off\` - Disable auto view\n` +
                         `• \`.autostatus react on\` - Enable reaction\n` +
-                        `• \`.autostatus react off\` - Disable reaction`,
+                        `• \`.autostatus react off\` - Disable reaction\n` +
+                        `• \`.autostatus ignore <num>\` - Ignore a contact\n` +
+                        `• \`.autostatus unignore <num>\` - Un-ignore a contact\n` +
+                        `• \`.autostatus ignored\` - List ignored contacts`,
                     ...channelInfo
                 }, { quoted: message });
                 return;
@@ -330,12 +343,56 @@ module.exports = {
                     }, { quoted: message });
                 }
 
+            } else if (command === 'ignore') {
+                const num = args[1] ? args[1].replace(/[^0-9]/g, '') : '';
+                if (!num) {
+                    await sock.sendMessage(chatId, {
+                        text: '❌ *Please provide a phone number!*\n\nUsage: `.autostatus ignore 254712345678`',
+                        ...channelInfo
+                    }, { quoted: message });
+                    return;
+                }
+                if (!ignoreList.includes(num)) ignoreList.push(num);
+                await store.saveSetting('global', 'autoStatusIgnoreList', ignoreList);
+                await sock.sendMessage(chatId, {
+                    text: `🚫 *${num}* has been added to the status ignore list.\nIgnored: ${ignoreList.length} contact(s).`,
+                    ...channelInfo
+                }, { quoted: message });
+
+            } else if (command === 'unignore') {
+                const num = args[1] ? args[1].replace(/[^0-9]/g, '') : '';
+                if (!num) {
+                    await sock.sendMessage(chatId, {
+                        text: '❌ *Please provide a phone number!*\n\nUsage: `.autostatus unignore 254712345678`',
+                        ...channelInfo
+                    }, { quoted: message });
+                    return;
+                }
+                const newList = ignoreList.filter(n => n !== num);
+                await store.saveSetting('global', 'autoStatusIgnoreList', newList);
+                const wasIgnored = ignoreList.length !== newList.length;
+                await sock.sendMessage(chatId, {
+                    text: wasIgnored
+                        ? `✅ *${num}* removed from ignore list.\nIgnored: ${newList.length} contact(s).`
+                        : `ℹ️ *${num}* was not in the ignore list.`,
+                    ...channelInfo
+                }, { quoted: message });
+
+            } else if (command === 'ignored') {
+                const text = ignoreList.length === 0
+                    ? '📋 *No contacts are currently ignored.*'
+                    : `📋 *Ignored Contacts (${ignoreList.length}):*\n\n` + ignoreList.map((n, i) => `${i + 1}. ${n}`).join('\n');
+                await sock.sendMessage(chatId, { text, ...channelInfo }, { quoted: message });
+
             } else {
                 await sock.sendMessage(chatId, {
                     text: '❌ *Invalid command!*\n\n' +
                         '*Usage:*\n' +
                         '• `.autostatus on/off` - Enable/disable auto view\n' +
-                        '• `.autostatus react on/off` - Enable/disable reactions',
+                        '• `.autostatus react on/off` - Enable/disable reactions\n' +
+                        '• `.autostatus ignore <num>` - Ignore a contact\n' +
+                        '• `.autostatus unignore <num>` - Un-ignore a contact\n' +
+                        '• `.autostatus ignored` - List ignored contacts',
                     ...channelInfo
                 }, { quoted: message });
             }
