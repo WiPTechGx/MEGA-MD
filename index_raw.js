@@ -201,8 +201,9 @@ setInterval(() => {
 setInterval(() => {
     const used = process.memoryUsage().rss / 1024 / 1024;
     if (used > 400) {
-        console.log(chalk.yellow('⚠️ RAM too high (>400MB), restarting bot...'));
-        process.exit(1);
+        if (global.gc) global.gc();
+        if (store && typeof store.cleanupData === 'function') store.cleanupData();
+        console.log(chalk.yellow('⚠️ RAM high (>400MB), executed emergency GC and store cleanup'));
     }
 }, 30_000);
 
@@ -373,7 +374,8 @@ async function startQasimDev() {
         ensureSessionDirectory();
         await delay(1000);
 
-        const { state, saveCreds } = await useMultiFileAuthState(`./session`);
+        const { useSQLiteAuthState } = require('./lib/sqliteAuthState');
+        const { state, saveCreds } = await useSQLiteAuthState();
         // Create retry counter cache with short TTL (10 seconds) so old messages don't stay cached
         const msgRetryCounterCache = new NodeCache({ stdTTL: 10, checkperiod: 5 });
 
@@ -668,20 +670,29 @@ async function startQasimDev() {
             if (connection === 'close') {
                 const reason = lastDisconnect?.error?.output?.statusCode;
                 const errorName = lastDisconnect?.error?.message || 'Unknown Error';
+                const reasonLabel = reason || 'unknown';
 
-                printLog('error', `Connection closed - Status:${reason} (${errorName})`);
+                printLog('error', `Connection closed - Status:${reasonLabel} (${errorName})`);
 
-                if (reason === 440) { // Conflict / Duplicate Session
+                if (reason === 440) { // Conflict / Duplicate Session during Render deploy
                     console.log(chalk.bold.redBright(`⚠️  SESSION CONFLICT (Status 440)`));
-                    console.log(chalk.red(`   Another instance is already using this session.`));
-                    console.log(chalk.red(`   Please stop other running bots (Local, Koyeb, etc).`));
-                    console.log(chalk.red(`   Waiting 30 seconds before reconnect attempt...`));
-                    // For 440 errors, wait much longer and exit aggressively
-                    await delay(30000);
-                    process.exit(1); // Force restart to clear socket state
+                    console.log(chalk.red(`   Another instance is active (Render zero-downtime deploy).`));
+                    console.log(chalk.red(`   Reconnecting in 20s after old container terminates...`));
+                    setTimeout(() => {
+                        startQasimDev().catch(err => printLog('error', `Reconnect error: ${err.message}`));
+                    }, 20000);
+                    return;
                 } else if (reason === 401) { // Logged out
-                    console.log(chalk.redBright(`⚠️  Session Logged Out. Please re-pair.`));
+                    console.log(chalk.redBright(`⚠️  Session Logged Out or Refreshed. Re-initializing...`));
+                    setTimeout(() => {
+                        startQasimDev().catch(err => printLog('error', `Reconnect error: ${err.message}`));
+                    }, 5000);
+                    return;
                 }
+
+                setTimeout(() => {
+                    startQasimDev().catch(err => printLog('error', `Reconnect error: ${err.message}`));
+                }, 3000);
             }
 
             if (connection == "open") {
