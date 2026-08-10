@@ -508,11 +508,22 @@ async function startPgwizDev() {
 
         pgwizSocket.ev.on('messages.upsert', async (chatUpdate) => {
             try {
+                const upsertType = chatUpdate?.type;
+                const msgs = Array.isArray(chatUpdate?.messages) ? chatUpdate.messages : [];
+                console.log(chalk.cyan(`\n📩 [RAW UPSERT] Type: ${upsertType} | Messages Count: ${msgs.length}`));
+                for (const mek of msgs) {
+                    const sender = mek.key?.participant || mek.key?.remoteJid;
+                    const fromMe = mek.key?.fromMe;
+                    const isGroup = mek.key?.remoteJid?.endsWith('@g.us');
+                    const hasMsg = !!mek.message;
+                    console.log(chalk.yellow(`   ➜ From: ${sender} (fromMe: ${fromMe}, isGroup: ${isGroup}, hasMsg: ${hasMsg})`));
+                }
+
                 // Only process real-time messages, ignore history/append
-                if (chatUpdate.type !== 'notify') return;
+                if (chatUpdate.type !== 'notify' && chatUpdate.type !== 'append') return;
 
                 const mek = chatUpdate.messages[0];
-                if (!mek.message) return;
+                if (!mek?.message) return;
 
                 mek.message = (Object.keys(mek.message)[0] === 'ephemeralMessage')
                     ? mek.message.ephemeralMessage.message
