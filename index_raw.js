@@ -525,6 +525,18 @@ async function startQasimDev() {
 
                 if (mek.key.id.startsWith('BAE5') && mek.key.id.length === 16) return;
 
+                const botMode = await store.getBotMode();
+                const isGroup = mek.key?.remoteJid?.endsWith('@g.us');
+                const senderId = mek.key?.participant || mek.key?.remoteJid;
+                const isOwnerOrSudo = require('./lib/isOwner');
+                const isOwnerMsg = mek.key?.fromMe || (typeof isOwnerOrSudo === 'function' && await isOwnerOrSudo(senderId, QasimDev, mek.key?.remoteJid));
+
+                if (!isOwnerMsg) {
+                    if (botMode === 'private' || botMode === 'self') return;
+                    if (botMode === 'groups' && !isGroup) return;
+                    if (botMode === 'inbox' && isGroup) return;
+                }
+
                 if (QasimDev?.msgRetryCounterCache) {
                     QasimDev.msgRetryCounterCache.clear();
                 }
