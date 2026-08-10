@@ -802,10 +802,10 @@ async function startQasimDev() {
             }
 
             if (connection === 'close') {
-                const shouldReconnect = (lastDisconnect?.error)?.output?.statusCode !== DisconnectReason.loggedOut;
                 const statusCode = lastDisconnect?.error?.output?.statusCode;
+                const errorMsg = String(lastDisconnect?.error?.message || '').toLowerCase();
 
-                printLog('error', `Connection closed - Status: ${statusCode}`);
+                printLog('error', `Connection closed - Status: ${statusCode || 'unknown'} (${lastDisconnect?.error?.message || 'Unknown'})`);
 
                 if (statusCode === DisconnectReason.loggedOut || statusCode === 401) {
                     try {
@@ -814,10 +814,20 @@ async function startQasimDev() {
                     } catch (error) {
                         printLog('error', `Error deleting session: ${error.message}`);
                     }
+                    return;
+                }
+
+                if (errorMsg.includes('incorrect private key length') || errorMsg.includes('invalid key') || errorMsg.includes('bad mac')) {
+                    printLog('warning', '[AUTO-REPAIR] Corrupted private key detected. Clearing auth cache for clean recovery...');
+                    try {
+                        const { resetSQLiteAuthState } = require('./lib/sqliteAuthState');
+                        resetSQLiteAuthState('incorrect-key-length');
+                        rmSync('./session', { recursive: true, force: true });
+                    } catch {}
                 }
 
                 // For non-440 errors, use exponential backoff
-                if (shouldReconnect && statusCode !== 440) {
+                if (statusCode !== 440) {
                     const waitTime = 8000; // Wait 8 seconds for other errors
                     printLog('connection', `Reconnecting in ${waitTime/1000} seconds...`);
                     await delay(waitTime);
