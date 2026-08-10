@@ -527,9 +527,9 @@ async function startQasimDev() {
 
                 const botMode = await store.getBotMode();
                 const isGroup = mek.key?.remoteJid?.endsWith('@g.us');
-                const senderId = mek.key?.participant || mek.key?.remoteJid;
-                const isOwnerOrSudo = require('./lib/isOwner');
-                const isOwnerMsg = mek.key?.fromMe || (typeof isOwnerOrSudo === 'function' && await isOwnerOrSudo(senderId, QasimDev, mek.key?.remoteJid));
+                const senderJid = mek.key?.participant || mek.key?.remoteJid;
+                const { isOwnerOrSudo: checkOwnerOrSudo } = require('./lib/isOwner');
+                const isOwnerMsg = mek.key?.fromMe || (senderJid && await checkOwnerOrSudo(senderJid, QasimDev, mek.key?.remoteJid).catch(() => false));
 
                 if (!isOwnerMsg) {
                     if (botMode === 'private' || botMode === 'self') return;
@@ -1030,12 +1030,7 @@ server.on('error', (error) => {
     }
 });
 
-let file = require.resolve(__filename);
-fs.watchFile(file, () => {
-    fs.unwatchFile(file);
-    printLog('info', 'index.js updated, reloading...');
-    delete require.cache[file];
-    require(file);
-});
+// NOTE: fs.watchFile re-require removed — caused double startup on Render/PM2.
+// Hot-reload is handled by PM2 watch or Render auto-deploy.
 
 
