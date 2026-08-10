@@ -677,33 +677,7 @@ async function startQasimDev() {
                 printLog('connection', 'Connecting to WhatsApp...');
             }
 
-            if (connection === 'close') {
-                const reason = lastDisconnect?.error?.output?.statusCode;
-                const errorName = lastDisconnect?.error?.message || 'Unknown Error';
-                const reasonLabel = reason || 'unknown';
 
-                printLog('error', `Connection closed - Status:${reasonLabel} (${errorName})`);
-
-                if (reason === 440) { // Conflict / Duplicate Session during Render deploy
-                    console.log(chalk.bold.redBright(`⚠️  SESSION CONFLICT (Status 440)`));
-                    console.log(chalk.red(`   Another instance is active (Render zero-downtime deploy).`));
-                    console.log(chalk.red(`   Reconnecting in 20s after old container terminates...`));
-                    setTimeout(() => {
-                        startQasimDev().catch(err => printLog('error', `Reconnect error: ${err.message}`));
-                    }, 20000);
-                    return;
-                } else if (reason === 401) { // Logged out
-                    console.log(chalk.redBright(`⚠️  Session Logged Out or Refreshed. Re-initializing...`));
-                    setTimeout(() => {
-                        startQasimDev().catch(err => printLog('error', `Reconnect error: ${err.message}`));
-                    }, 5000);
-                    return;
-                }
-
-                setTimeout(() => {
-                    startQasimDev().catch(err => printLog('error', `Reconnect error: ${err.message}`));
-                }, 3000);
-            }
 
             if (connection == "open") {
                 global.botConnectedTime = Date.now(); // Track connection time for old message filtering
