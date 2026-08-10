@@ -401,7 +401,7 @@ async function startPgwizDev() {
             syncFullHistory: false,
             shouldSyncHistoryMessage: () => false, // Disable history sync for real-time only
             retryRequestDelayMs: 2000, // Reduce retry delay from 5s to 2s
-            fireInitQueries: true,
+            fireInitQueries: false,
             getMessage: async (key) => {
                 try {
                     // Add a 3 second timeout so we don't get stuck waiting for old messages
