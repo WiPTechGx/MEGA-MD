@@ -826,13 +826,20 @@ async function startQasimDev() {
                     } catch {}
                 }
 
-                // For non-440 errors, use exponential backoff
-                if (statusCode !== 440) {
-                    const waitTime = 8000; // Wait 8 seconds for other errors
-                    printLog('connection', `Reconnecting in ${waitTime/1000} seconds...`);
-                    await delay(waitTime);
+                if (statusCode === 440) {
+                    console.log(chalk.bold.redBright('⚠️  SESSION CONFLICT (Status 440)'));
+                    console.log(chalk.red('   Another bot instance is currently connected with this SESSION_ID.'));
+                    console.log(chalk.red('   Please ensure other running terminals or cloud instances are stopped.'));
+                    printLog('connection', 'Reconnecting in 30 seconds...');
+                    await delay(30000);
                     startQasimDev();
+                    return;
                 }
+
+                const waitTime = 8000;
+                printLog('connection', `Reconnecting in ${waitTime/1000} seconds...`);
+                await delay(waitTime);
+                startQasimDev();
             }
         });
 
