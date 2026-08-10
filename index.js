@@ -365,7 +365,7 @@ if (!server.listening) {
     });
 }
 
-async function startQasimDev() {
+async function startPgwizDev() {
     try {
         let { version, isLatest } = await fetchLatestBaileysVersion();
 
@@ -387,7 +387,7 @@ async function startQasimDev() {
             printLog('info', '👻 STEALTH MODE IS ACTIVE - Starting in stealth mode');
         }
 
-        const QasimDev = makeWASocket({
+        const pgwizSocket = makeWASocket({
             version,
             logger: pino({ level: 'silent' }, nullStream), // Silent logger with null stream
             printQRInTerminal: !pairingCode,
@@ -425,14 +425,14 @@ async function startQasimDev() {
         });
 
         // Expose bot instance globally for /ping endpoint
-        global.botInstance = QasimDev;
+        global.botInstance = pgwizSocket;
 
-        const originalSendPresenceUpdate = QasimDev.sendPresenceUpdate;
-        const originalReadMessages = QasimDev.readMessages;
-        const originalSendReceipt = QasimDev.sendReceipt;
-        const originalSendReadReceipt = QasimDev.sendReadReceipt;
+        const originalSendPresenceUpdate = pgwizSocket.sendPresenceUpdate;
+        const originalReadMessages = pgwizSocket.readMessages;
+        const originalSendReceipt = pgwizSocket.sendReceipt;
+        const originalSendReadReceipt = pgwizSocket.sendReadReceipt;
 
-        QasimDev.sendPresenceUpdate = async function (...args) {
+        pgwizSocket.sendPresenceUpdate = async function (...args) {
             const [presenceType, jid] = args;
             const ghostMode = await store.getSetting('global', 'stealthMode');
             if (ghostMode && ghostMode.enabled) {
@@ -456,7 +456,7 @@ async function startQasimDev() {
             return originalSendPresenceUpdate.apply(this, args);
         };
 
-        QasimDev.readMessages = async function (...args) {
+        pgwizSocket.readMessages = async function (...args) {
             const ghostMode = await store.getSetting('global', 'stealthMode');
             if (ghostMode && ghostMode.enabled) {
                 return;
@@ -465,7 +465,7 @@ async function startQasimDev() {
         };
 
         if (originalSendReceipt) {
-            QasimDev.sendReceipt = async function (...args) {
+            pgwizSocket.sendReceipt = async function (...args) {
                 const ghostMode = await store.getSetting('global', 'stealthMode');
                 if (ghostMode && ghostMode.enabled) {
                     return;
@@ -475,7 +475,7 @@ async function startQasimDev() {
         }
 
         if (originalSendReadReceipt) {
-            QasimDev.sendReadReceipt = async function (...args) {
+            pgwizSocket.sendReadReceipt = async function (...args) {
                 const ghostMode = await store.getSetting('global', 'stealthMode');
                 if (ghostMode && ghostMode.enabled) {
                     return;
@@ -484,8 +484,8 @@ async function startQasimDev() {
             };
         }
 
-        const originalQuery = QasimDev.query;
-        QasimDev.query = async function (node, ...args) {
+        const originalQuery = pgwizSocket.query;
+        pgwizSocket.query = async function (node, ...args) {
             const ghostMode = await store.getSetting('global', 'stealthMode');
             if (ghostMode && ghostMode.enabled) {
                 if (node && node.tag === 'receipt') {
@@ -498,15 +498,15 @@ async function startQasimDev() {
             return originalQuery.apply(this, [node, ...args]);
         };
 
-        QasimDev.isGhostMode = async () => {
+        pgwizSocket.isGhostMode = async () => {
             const ghostMode = await store.getSetting('global', 'stealthMode');
             return ghostMode && ghostMode.enabled;
         };
 
-        QasimDev.ev.on('creds.update', saveCreds);
-        store.bind(QasimDev.ev);
+        pgwizSocket.ev.on('creds.update', saveCreds);
+        store.bind(pgwizSocket.ev);
 
-        QasimDev.ev.on('messages.upsert', async (chatUpdate) => {
+        pgwizSocket.ev.on('messages.upsert', async (chatUpdate) => {
             try {
                 // Only process real-time messages, ignore history/append
                 if (chatUpdate.type !== 'notify') return;
@@ -519,7 +519,7 @@ async function startQasimDev() {
                     : mek.message;
 
                 if (mek.key && mek.key.remoteJid === 'status@broadcast') {
-                    handleStatus(QasimDev, chatUpdate).catch(err => printLog('error', `AutoStatus Error: ${err.message}`));
+                    handleStatus(pgwizSocket, chatUpdate).catch(err => printLog('error', `AutoStatus Error: ${err.message}`));
                     return;
                 }
 
@@ -529,7 +529,7 @@ async function startQasimDev() {
                 const isGroup = mek.key?.remoteJid?.endsWith('@g.us');
                 const senderJid = mek.key?.participant || mek.key?.remoteJid;
                 const checkOwnerOrSudo = require('./lib/isOwner');
-                const isOwnerMsg = mek.key?.fromMe || (senderJid && await checkOwnerOrSudo(senderJid, QasimDev, mek.key?.remoteJid).catch(() => false));
+                const isOwnerMsg = mek.key?.fromMe || (senderJid && await checkOwnerOrSudo(senderJid, pgwizSocket, mek.key?.remoteJid).catch(() => false));
 
                 if (!isOwnerMsg) {
                     if (botMode === 'private' || botMode === 'self') return;
@@ -537,16 +537,16 @@ async function startQasimDev() {
                     if (botMode === 'inbox' && isGroup) return;
                 }
 
-                if (QasimDev?.msgRetryCounterCache) {
-                    QasimDev.msgRetryCounterCache.clear();
+                if (pgwizSocket?.msgRetryCounterCache) {
+                    pgwizSocket.msgRetryCounterCache.clear();
                 }
 
                 try {
-                    await handleMessages(QasimDev, chatUpdate);
+                    await handleMessages(pgwizSocket, chatUpdate);
                 } catch (err) {
                     printLog('error', `Error in handleMessages: ${err.message}`);
                     if (mek.key && mek.key.remoteJid) {
-                        await QasimDev.sendMessage(mek.key.remoteJid, {
+                        await pgwizSocket.sendMessage(mek.key.remoteJid, {
                             text: '❌ An error occurred while processing your message.',
                             contextInfo: {
                                 forwardingScore: 1,
@@ -565,7 +565,7 @@ async function startQasimDev() {
             }
         });
 
-        QasimDev.decodeJid = (jid) => {
+        pgwizSocket.decodeJid = (jid) => {
             if (!jid) return jid;
             if (/:\d+@/gi.test(jid)) {
                 let decode = jidDecode(jid) || {};
@@ -573,33 +573,33 @@ async function startQasimDev() {
             } else return jid;
         };
 
-        QasimDev.ev.on('contacts.update', update => {
+        pgwizSocket.ev.on('contacts.update', update => {
             for (let contact of update) {
-                let id = QasimDev.decodeJid(contact.id);
+                let id = pgwizSocket.decodeJid(contact.id);
                 if (store && store.contacts) store.contacts[id] = { id, name: contact.notify };
             }
         });
 
-        QasimDev.getName = (jid, withoutContact = false) => {
-            id = QasimDev.decodeJid(jid);
-            withoutContact = QasimDev.withoutContact || withoutContact;
+        pgwizSocket.getName = (jid, withoutContact = false) => {
+            id = pgwizSocket.decodeJid(jid);
+            withoutContact = pgwizSocket.withoutContact || withoutContact;
             let v;
             if (id.endsWith("@g.us")) return new Promise(async (resolve) => {
                 v = store.contacts[id] || {};
-                if (!(v.name || v.subject)) v = QasimDev.groupMetadata(id) || {};
+                if (!(v.name || v.subject)) v = pgwizSocket.groupMetadata(id) || {};
                 resolve(v.name || v.subject || PhoneNumber('+' + id.replace('@s.whatsapp.net', '')).getNumber('international'));
             });
             else v = id === '0@s.whatsapp.net' ? {
                 id,
                 name: 'WhatsApp'
-            } : id === QasimDev.decodeJid(QasimDev.user.id) ?
-                QasimDev.user :
+            } : id === pgwizSocket.decodeJid(pgwizSocket.user.id) ?
+                pgwizSocket.user :
                 (store.contacts[id] || {});
             return (withoutContact ? '' : v.name) || v.subject || v.verifiedName || PhoneNumber('+' + jid.replace('@s.whatsapp.net', '')).getNumber('international');
         };
 
-        QasimDev.public = true;
-        QasimDev.serializeM = (m) => smsg(QasimDev, m, store);
+        pgwizSocket.public = true;
+        pgwizSocket.serializeM = (m) => smsg(pgwizSocket, m, store);
 
         const isRegistered = state.creds?.registered === true;
         const hasValidMe = state.creds?.me?.id ? true : false;
@@ -645,7 +645,7 @@ async function startQasimDev() {
 
             setTimeout(async () => {
                 try {
-                    let code = await QasimDev.requestPairingCode(phoneNumberInput);
+                    let code = await pgwizSocket.requestPairingCode(phoneNumberInput);
                     code = code?.match(/.{1,4}/g)?.join("-") || code;
                     console.log(chalk.black(chalk.bgGreen(`Your Pairing Code : `)), chalk.black(chalk.white(code)));
                     printLog('success', `Pairing code generated: ${code}`);
@@ -666,7 +666,7 @@ async function startQasimDev() {
             }
         }
 
-        QasimDev.ev.on('connection.update', async (s) => {
+        pgwizSocket.ev.on('connection.update', async (s) => {
             const { connection, lastDisconnect, qr } = s;
 
             if (qr) {
@@ -683,11 +683,11 @@ async function startQasimDev() {
                 global.botConnectedTime = Date.now(); // Track connection time for old message filtering
                 printLog('success', 'Bot connected successfully!');
                 const { startAutoBio } = require('./plugins/a-setbio');
-                startAutoBio(QasimDev);
+                startAutoBio(pgwizSocket);
                 const presenceConfig = await getPresenceConfig();
                 if (presenceConfig.alwaysOnline && !(ghostMode && ghostMode.enabled)) {
                     try {
-                        await originalSendPresenceUpdate.call(QasimDev, 'available');
+                        await originalSendPresenceUpdate.call(pgwizSocket, 'available');
                     } catch (error) {
                         printLog('warning', `Failed to set initial always-online presence: ${error.message}`);
                     }
@@ -700,24 +700,24 @@ async function startQasimDev() {
                             const currentPresenceConfig = await getPresenceConfig();
                             if (!currentPresenceConfig.alwaysOnline) return;
 
-                            await originalSendPresenceUpdate.call(QasimDev, 'available');
+                            await originalSendPresenceUpdate.call(pgwizSocket, 'available');
                         } catch {}
                     }, 45 * 1000);
 
                     printLog('presence', 'Always online presence heartbeat enabled');
                 } else if (!ghostMode || !ghostMode.enabled) {
                     try {
-                        await originalSendPresenceUpdate.call(QasimDev, 'unavailable');
+                        await originalSendPresenceUpdate.call(pgwizSocket, 'unavailable');
                     } catch (error) {}
                 }
 
-                // console.log(chalk.yellow(`🌿Connected to => ` + JSON.stringify(QasimDev.user, null, 2))); // Verbose
+                // console.log(chalk.yellow(`🌿Connected to => ` + JSON.stringify(pgwizSocket.user, null, 2))); // Verbose
 
                 try {
-                    const botNumber = QasimDev.user.id.split(':')[0] + '@s.whatsapp.net';
+                    const botNumber = pgwizSocket.user.id.split(':')[0] + '@s.whatsapp.net';
                     const ghostStatus = (ghostMode && ghostMode.enabled) ? '\n👻 Stealth Mode: ACTIVE' : '';
 
-                    await QasimDev.sendMessage(botNumber, {
+                    await pgwizSocket.sendMessage(botNumber, {
                         text: `🤖 Bot Connected Successfully!\n\n⏰ Time: ${new Date().toLocaleString()}\n✅ Status: Online and Ready!${ghostStatus}\n\n✅Make sure to join below channel`,
                         contextInfo: {
                             forwardingScore: 1,
@@ -744,7 +744,7 @@ async function startQasimDev() {
                                 expiresAt: Date.now() + 10 * 60 * 1000
                             };
 
-                            await QasimDev.sendMessage(ownerJid, {
+                            await pgwizSocket.sendMessage(ownerJid, {
                                 text: '🤖 Startup check — reply to this message to confirm bot status.\n\nReply with `.menu` to receive the first menu (debug only).',
                             });
 
@@ -806,36 +806,36 @@ async function startQasimDev() {
                     console.log(chalk.red('   Please ensure other running terminals or cloud instances are stopped.'));
                     printLog('connection', 'Reconnecting in 30 seconds...');
                     await delay(30000);
-                    startQasimDev();
+                    startPgwizDev();
                     return;
                 }
 
                 const waitTime = 8000;
                 printLog('connection', `Reconnecting in ${waitTime/1000} seconds...`);
                 await delay(waitTime);
-                startQasimDev();
+                startPgwizDev();
             }
         });
 
-        QasimDev.ev.on('call', async (calls) => {
-            await handleCall(QasimDev, calls);
+        pgwizSocket.ev.on('call', async (calls) => {
+            await handleCall(pgwizSocket, calls);
         });
 
-        QasimDev.ev.on('group-participants.update', async (update) => {
-            await handleGroupParticipantUpdate(QasimDev, update);
+        pgwizSocket.ev.on('group-participants.update', async (update) => {
+            await handleGroupParticipantUpdate(pgwizSocket, update);
         });
 
-        QasimDev.ev.on('status.update', async (status) => {
-            await handleStatus(QasimDev, status);
+        pgwizSocket.ev.on('status.update', async (status) => {
+            await handleStatus(pgwizSocket, status);
         });
 
-        QasimDev.ev.on('messages.reaction', async (reaction) => {
-            await handleStatus(QasimDev, reaction);
+        pgwizSocket.ev.on('messages.reaction', async (reaction) => {
+            await handleStatus(pgwizSocket, reaction);
         });
 
-        return QasimDev;
+        return pgwizSocket;
     } catch (error) {
-        printLog('error', `Error in startQasimDev: ${error.message}`);
+        printLog('error', `Error in startPgwizDev: ${error.message}`);
 
         if (rl && !rl.closed) {
             rl.close();
@@ -843,7 +843,7 @@ async function startQasimDev() {
         }
 
         await delay(5000);
-        startQasimDev();
+        startPgwizDev();
     }
 }
 
@@ -861,7 +861,7 @@ async function main() {
 
     await delay(3000);
 
-    startQasimDev().catch(error => {
+    startPgwizDev().catch(error => {
         printLog('error', `Fatal error: ${error.message}`);
 
         if (rl && !rl.closed) {
