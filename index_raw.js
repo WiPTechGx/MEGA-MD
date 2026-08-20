@@ -313,13 +313,17 @@ function hasValidSession() {
 }
 
 async function getPresenceConfig() {
+    try {
+        const existing = await store.getSetting('global', 'presenceConfig');
+        if (existing && typeof existing.alwaysOnline === 'boolean') {
+            return { alwaysOnline: existing.alwaysOnline };
+        }
+    } catch (e) {}
+
     const envVal = process.env.ALWAYS_ONLINE || process.env.ALWAYS_ONLINE_PRESENCE;
     if (envVal !== undefined && String(envVal).trim() !== '') {
-        return { alwaysOnline: String(envVal).toLowerCase() === 'true' };
-    }
-    const existing = await store.getSetting('global', 'presenceConfig');
-    if (existing && typeof existing.alwaysOnline === 'boolean') {
-        return { alwaysOnline: existing.alwaysOnline };
+        const s = String(envVal).toLowerCase().trim();
+        return { alwaysOnline: s === 'true' || s === '1' || s === 'yes' || s === 'on' };
     }
     return { alwaysOnline: false };
 }
@@ -713,28 +717,28 @@ async function startPgwizDev() {
                 if (presenceConfig.alwaysOnline && !(ghostMode && ghostMode.enabled)) {
                     try {
                         await originalSendPresenceUpdate.call(pgwizSocket, 'available');
+                        printLog('presence', '🟢 Always-online presence activated');
                     } catch (error) {
                         printLog('warning', `Failed to set initial always-online presence: ${error.message}`);
                     }
-
-                    setInterval(async () => {
-                        try {
-                            const currentGhostMode = await store.getSetting('global', 'stealthMode');
-                            if (currentGhostMode && currentGhostMode.enabled) return;
-
-                            const currentPresenceConfig = await getPresenceConfig();
-                            if (!currentPresenceConfig.alwaysOnline) return;
-
-                            await originalSendPresenceUpdate.call(pgwizSocket, 'available');
-                        } catch {}
-                    }, 45 * 1000);
-
-                    printLog('presence', 'Always online presence heartbeat enabled');
                 } else if (!ghostMode || !ghostMode.enabled) {
                     try {
                         await originalSendPresenceUpdate.call(pgwizSocket, 'unavailable');
                     } catch (error) {}
                 }
+
+                // Continuous presence heartbeat (25s interval)
+                setInterval(async () => {
+                    try {
+                        const currentGhostMode = await store.getSetting('global', 'stealthMode');
+                        if (currentGhostMode && currentGhostMode.enabled) return;
+
+                        const currentPresenceConfig = await getPresenceConfig();
+                        if (currentPresenceConfig.alwaysOnline) {
+                            await originalSendPresenceUpdate.call(pgwizSocket, 'available');
+                        }
+                    } catch {}
+                }, 25 * 1000);
 
                 // console.log(chalk.yellow(`🌿Connected to => ` + JSON.stringify(pgwizSocket.user, null, 2))); // Verbose
 
