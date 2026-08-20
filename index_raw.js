@@ -188,6 +188,7 @@ const store = require('./lib/lightweight_store');
 const SaveCreds = require('./lib/session');
 const { app, server, PORT } = require('./lib/server');
 const { printLog } = require('./lib/print');
+const isOwnerOrSudo = require('./lib/isOwner');
 const {
     handleMessages,
     handleGroupParticipantUpdate,
