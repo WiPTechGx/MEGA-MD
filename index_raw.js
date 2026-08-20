@@ -713,6 +713,12 @@ async function startPgwizDev() {
                 printLog('success', 'Bot connected successfully!');
                 const { startAutoBio } = require('./plugins/a-setbio');
                 startAutoBio(pgwizSocket);
+                try {
+                    const { initAutoClear } = require('./plugins/autoclear');
+                    if (typeof initAutoClear === 'function') {
+                        initAutoClear(pgwizSocket);
+                    }
+                } catch (error) {}
                 const presenceConfig = await getPresenceConfig();
                 if (presenceConfig.alwaysOnline && !(ghostMode && ghostMode.enabled)) {
                     try {

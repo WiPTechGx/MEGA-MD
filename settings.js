@@ -12,7 +12,7 @@ const settings = {
   tempCleanupInterval: 1 * 60 * 60 * 1000,
   storeWriteInterval: 10000,
   description: "This is a bot for managing group commands and automating tasks.",
-  version: "5.1.0",
+  version: "5.2.0",
   updateZipUrl: process.env.UPDATE_ZIP_URL || "https://github.com/WiPTechGx/MEGA-MD/archive/refs/heads/main.zip",
   channelLink: "https://whatsapp.com/channel/0029Va8cpObHwXbDoZE9VY3K",
   ytch: "pgwiz",
