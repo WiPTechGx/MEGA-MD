@@ -20,7 +20,7 @@ module.exports = {
   category: 'general',
   description: 'Show bot status information',
   usage: '.uptime',
-  isPrefixless: true,
+  
 
   async handler(sock, message) {
     const chatId = message.key.remoteJid;

@@ -4,7 +4,7 @@ module.exports = {
   category: 'general',
   description: 'Repeats your message a specified number of times.',
   usage: '.echo <text> <count>',
-  isPrefixless: true,
+  
 
   async handler(sock, message, args) {
     const chatId = message.key.remoteJid;
