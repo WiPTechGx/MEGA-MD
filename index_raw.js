@@ -335,9 +335,10 @@ async function getPresenceConfig() {
 }
 
 async function isAlwaysOnlineEnabled() {
-    const config = await getPresenceConfig();
-    return !!config.alwaysOnline;
-} catch {
+    try {
+        const config = await getPresenceConfig();
+        return !!config.alwaysOnline;
+    } catch {
         return false;
     }
 }
