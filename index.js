@@ -1,3 +1,4 @@
+global.botLaunchTimestamp = Math.floor(Date.now() / 1000);
 /* process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'; */
 
 // Auto self-healing dependency installer for panels (Wispbyte, Pterodactyl, Replit, Koyeb, etc.)
