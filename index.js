@@ -775,13 +775,13 @@ async function startPgwizDev() {
                     const ghostStatus = (ghostMode && ghostMode.enabled) ? '\n👻 Stealth Mode: ACTIVE' : '';
 
                     await pgwizSocket.sendMessage(botNumber, {
-                        text: `🤖 Bot Connected Successfully!\n\n⏰ Time: ${new Date().toLocaleString()}\n✅ Status: Online and Ready!${ghostStatus}\n\n✅Make sure to join below channel`,
+                        text: `🤖 ${settings.botName || 'PGWIZ-MD'} Connected Successfully!\n\n⏰ Time: ${new Date().toLocaleString()}\n✅ Status: Online and Ready!${ghostStatus}\n\n✅Make sure to join below channel`,
                         contextInfo: {
                             forwardingScore: 1,
                             isForwarded: true,
                             forwardedNewsletterMessageInfo: {
                                 newsletterJid: '120363179639202475@newsletter',
-                                newsletterName: 'PGWIZ-MD',
+                                newsletterName: settings.newsletterName || settings.botName || 'PGWIZ-MD',
                                 serverMessageId: -1
                             }
                         }
@@ -824,7 +824,7 @@ async function startPgwizDev() {
                 // console.log(chalk.magenta(`${global.themeemoji || '•'} GITHUB: pgwiz`));
                 // console.log(chalk.magenta(`${global.themeemoji || '•'} WA NUMBER: ${owner}`));
                 // console.log(chalk.magenta(`${global.themeemoji || '•'} CREDIT: pgwiz`));
-                // console.log(chalk.green(`${global.themeemoji || '•'} 🤖 Bot Connected Successfully! ✅`));
+                // console.log(chalk.green(`${global.themeemoji || '•'} 🤖 ${settings.botName || 'PGWIZ-MD'} Connected Successfully! ✅`));
                 // console.log(chalk.blue(`Bot Version: ${settings.version}`));
                 // console.log(chalk.cyan(`Loaded Commands: ${commandHandler.commands.size}`));
                 // console.log(chalk.cyan(`Prefixes: ${settings.prefixes.join(', ')}`));
@@ -906,7 +906,7 @@ async function startPgwizDev() {
 
 
 async function main() {
-    printLog('info', 'Starting PGWIZ-MD BOT...');
+    printLog('info', `Starting ${settings.botName || 'PGWIZ-MD'} BOT...`);
 
     const sessionReady = await initializeSession();
 

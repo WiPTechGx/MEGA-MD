@@ -54,7 +54,7 @@ module.exports = {
           isForwarded: true,
           forwardedNewsletterMessageInfo: {
             newsletterJid: settings.newsletterJid || '120363179639202475@newsletter',
-            newsletterName: settings.newsletterName || 'PGWIZ-MD',
+            newsletterName: settings.newsletterName || settings.botName || 'PGWIZ-MD',
             serverMessageId: -1
           }
         }
