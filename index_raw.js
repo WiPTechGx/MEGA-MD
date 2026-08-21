@@ -429,7 +429,7 @@ async function startPgwizDev() {
         const { useSQLiteAuthState } = require('./lib/sqliteAuthState');
         const { state, saveCreds } = await useSQLiteAuthState();
         // Create retry counter cache with short TTL (10 seconds) so old messages don't stay cached
-        const msgRetryCounterCache = new NodeCache({ stdTTL: 10, checkperiod: 5 });
+        const msgRetryCounterCache = new NodeCache({ stdTTL: 300, checkperiod: 60 });
 
         const hasRegisteredCreds = state.creds && state.creds.registered !== undefined;
         printLog('info', `Credentials loaded. Registered: ${state.creds?.registered || false}`);
@@ -454,7 +454,8 @@ async function startPgwizDev() {
             generateHighQualityLinkPreview: true,
             syncFullHistory: false,
             shouldSyncHistoryMessage: () => false, // Disable history sync for real-time only
-            retryRequestDelayMs: 2000, // Reduce retry delay from 5s to 2s
+            retryRequestDelayMs: 2500,
+            maxMsgRetryCount: 3, // Reduce retry delay from 5s to 2s
             fireInitQueries: false,
             getMessage: async (key) => {
                 try {
@@ -605,9 +606,7 @@ async function startPgwizDev() {
                     if (botMode === 'inbox' && isGroup) return;
                 }
 
-                if (pgwizSocket?.msgRetryCounterCache) {
-                    pgwizSocket.msgRetryCounterCache.clear();
-                }
+                // Preserved msgRetryCounterCache to prevent infinite message retry loops
 
                 try {
                     await handleMessages(pgwizSocket, chatUpdate);
