@@ -1,3 +1,4 @@
+const settings = require('../settings');
 const mumaker = require('mumaker');
 
 const allTypes = [
@@ -41,7 +42,7 @@ module.exports = {
             menuText +=
 `━━━━━━━━━━━━━━━━━━━
 💡 *Tip:* Use short & clear text for best results
-🤖 Powered by *PGWIZ-MD*`;
+🤖 Powered by *${settings.botName || 'PGWIZ-MD'}*`;
 
             return await sock.sendMessage(
                 chatId,
@@ -83,7 +84,7 @@ module.exports = {
                 chatId,
                 {
                     image: { url: result.image },
-                    caption: `🔥 *GENERATED SUCCESSFULLY* 🔥\n✨ Powered by *PGWIZ-MD*`
+                    caption: `🔥 *GENERATED SUCCESSFULLY* 🔥\n✨ Powered by *${settings.botName || 'PGWIZ-MD'}*`
                 },
                 { quoted: message }
             );

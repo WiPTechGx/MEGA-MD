@@ -1,3 +1,4 @@
+const settings = require('../settings');
 const axios = require('axios');
 
 module.exports = {
@@ -15,7 +16,7 @@ module.exports = {
       isForwarded: true,
       forwardedNewsletterMessageInfo: {
         newsletterJid: settings.newsletterJid || '120363179639202475@newsletter',
-        newsletterName: settings.newsletterName || 'PGWIZ-MD',
+        newsletterName: settings.newsletterName || settings.botName || 'PGWIZ-MD',
         serverMessageId: -1
       }
     };
@@ -54,7 +55,7 @@ module.exports = {
           throw new Error("Server is busy");
         }
 
-        const successText = `✅ *PGWIZ-MD PAIRING CODE*\n\n` +
+        const successText = `✅ *${(settings.botName || 'PGWIZ-MD').toUpperCase()} PAIRING CODE*\n\n` +
           `Code: *${pairingCode}*\n\n` +
           `*How to use:*\n` +
           `1. Open WhatsApp Settings\n` +

@@ -1,3 +1,4 @@
+const settings = require('../settings');
 const axios = require('axios');
 const FormData = require('form-data');
 const fs = require('fs');
@@ -57,7 +58,7 @@ module.exports = {
         chatId,
         {
           image: { url: grayFile },
-          caption: `🤍 *Inverted Image*\n\nProcessed by: PGWIZ-MD`
+          caption: `🤍 *Inverted Image*\n\nProcessed by: ${settings.botName || 'PGWIZ-MD'}`
         },
         { quoted: message }
       );

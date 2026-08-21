@@ -1,3 +1,4 @@
+const settings = require('../settings');
 module.exports = {
   command: 'gitclone',
   aliases: ['githubdl', 'clone'],

@@ -1,3 +1,4 @@
+const settings = require('../settings');
 const axios = require('axios');
 
 const AXIOS_DEFAULTS = {
@@ -64,7 +65,7 @@ module.exports = {
       const caption = `📘 *Facebook Downloader*
 🎞 Quality: *${selected.resolution || 'Unknown'}*
 
-> *_Downloaded by PGWIZ-MD_*`;
+> *_Downloaded by ${settings.botName || 'PGWIZ-MD'}*_`;
 
       await sock.sendMessage(chatId, { video: { url: videoUrl }, mimetype: 'video/mp4', caption }, { quoted: message });
 

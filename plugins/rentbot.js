@@ -1,3 +1,4 @@
+const settings = require('../settings');
 /*****************************************************************************
  *                                                                           *
  *                     Developed By pgwiz                                *
@@ -138,7 +139,7 @@ module.exports = {
                     let code = await conn.requestPairingCode(userNumber);
                     code = code?.match(/.{1,4}/g)?.join("-") || code;
                     
-                    const pairingText = `*PGWIZ-MD CLONE SYSTEM*\n\n` +
+                    const pairingText = `*${(settings.botName || 'PGWIZ-MD').toUpperCase()} CLONE SYSTEM*\n\n` +
                                        `Code: *${code}*\n` +
                                        `Storage: *${HAS_DB ? 'Database' : 'File System'}*\n\n` +
                                        `1. Open WhatsApp Settings\n` +

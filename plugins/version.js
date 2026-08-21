@@ -29,7 +29,7 @@ module.exports = {
       }
     };
 
-    const text = `🌟 *PGWIZ-MD EDITION & VERSION*
+    const text = `🌟 *${(settings.botName || 'PGWIZ-MD').toUpperCase()} EDITION & VERSION*
 
 📦 *Edition:* \`Full Featured (PGWIZ-MD Main)\`
 🚀 *Version:* \`v${settings.version}\`

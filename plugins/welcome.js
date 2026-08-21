@@ -1,3 +1,4 @@
+const settings = require('../settings');
 const { handleWelcome } = require('../lib/welcome');
 const { isWelcomeOn, getWelcome } = require('../lib/index');
 const fetch = require('node-fetch');
@@ -35,7 +36,7 @@ async function handleJoinEvent(sock, id, participants) {
       isForwarded: true,
       forwardedNewsletterMessageInfo: {
         newsletterJid: settings.newsletterJid || '120363179639202475@newsletter',
-        newsletterName: settings.newsletterName || 'PGWIZ-MD',
+        newsletterName: settings.newsletterName || settings.botName || 'PGWIZ-MD',
         serverMessageId: -1
       }
     }
@@ -80,7 +81,7 @@ async function handleJoinEvent(sock, id, participants) {
           hour12: true
         });
 
-        finalMessage = `╭╼━≪•𝙽𝙴𝚆 𝙼𝙴𝙼𝙱𝙴𝚁•≫━╾╮\n┃𝚆𝙴𝙻𝙲𝙾𝙼𝙴: @${displayName} 👋\n┃Member count: #${groupMetadata.participants.length}\n┃𝚃𝙸𝙼𝙴: ${timeString}⏰\n╰━━━━━━━━━━━━━━━╯\n\n*@${displayName}* Welcome to *${groupName}*! 🎉\n*Group 𝙳𝙴𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽*\n${groupDesc}\n\n> *ᴘᴏᴡᴇʀᴇᴅ ʙʏ PGWIZ-MD*`;
+        finalMessage = `╭╼━≪•𝙽𝙴𝚆 𝙼𝙴𝙼𝙱𝙴𝚁•≫━╾╮\n┃𝚆𝙴𝙻𝙲𝙾𝙼𝙴: @${displayName} 👋\n┃Member count: #${groupMetadata.participants.length}\n┃𝚃𝙸𝙼𝙴: ${timeString}⏰\n╰━━━━━━━━━━━━━━━╯\n\n*@${displayName}* Welcome to *${groupName}*! 🎉\n*Group 𝙳𝙴𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽*\n${groupDesc}\n\n> *ᴘᴏᴡᴇʀᴇᴅ ʙʏ ${settings.botName || 'PGWIZ-MD'}*`;
       }
 
       try {

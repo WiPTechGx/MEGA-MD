@@ -1,3 +1,4 @@
+const settings = require('../settings');
 const axios = require('axios');
 
 module.exports = {
@@ -45,7 +46,7 @@ module.exports = {
         document: { url: url },
         fileName: filename,
         mimetype: 'application/zip',
-        caption: `📦 *Repository:* ${user}/${repo}\n✨ *Cloned by PGWIZ-MD*`
+        caption: `📦 *Repository:* ${user}/${repo}\n✨ *Cloned by ${settings.botName || 'PGWIZ-MD'}*`
       }, { quoted: message });
 
     } catch (err) {

@@ -1,3 +1,4 @@
+const settings = require('../settings');
 module.exports = {
   command: 'excard',
   aliases: [],
@@ -25,7 +26,7 @@ module.exports = {
       contextInfo: {
         externalAdReply: {
           title: title,
-          body: 'Shared via PGWIZ-MD',
+          body: `Shared via ${settings.botName || 'PGWIZ-MD'}`,
           thumbnailUrl: url || 'https://i.ibb.co/3S6f0mS/default.jpg',
           mediaType: 1,
           renderLargerThumbnail: true,

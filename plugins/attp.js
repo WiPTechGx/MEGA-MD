@@ -1,3 +1,4 @@
+const settings = require('../settings');
 const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -20,7 +21,7 @@ module.exports = {
 
     try {
       const mp4Buffer = await renderBlinkingVideoWithFfmpeg(text);
-      const webpPath = await writeExifVid(mp4Buffer, { packname: 'PGWIZ-MD' });
+      const webpPath = await writeExifVid(mp4Buffer, { packname: settings.packname || settings.botName || 'PGWIZ-MD' });
       const webpBuffer = fs.readFileSync(webpPath);
       try { fs.unlinkSync(webpPath); } catch {}
       await sock.sendMessage(chatId, { sticker: webpBuffer }, { quoted: message });

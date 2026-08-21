@@ -1,3 +1,4 @@
+const settings = require('../settings');
 /*****************************************************************************
  *                                                                           *
  *                     Developed By pgwiz                                *
@@ -47,7 +48,7 @@ module.exports = {
     const commandCount = commandHandler.commands.size;
 
     const text =
-      `🤖 *PGWIZ-MD STATUS*\n\n` +
+      `🤖 *${(settings.botName || 'PGWIZ-MD').toUpperCase()} STATUS*\n\n` +
       `⏱ Uptime: ${formatUptime(uptimeMs)}\n` +
       `🚀 Started: ${startedAt}\n` +
       `📦 Plugins: ${commandCount}\n` +
