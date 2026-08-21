@@ -452,7 +452,26 @@ async function startPgwizDev() {
         // Expose bot instance globally for /ping endpoint
         global.botInstance = pgwizSocket;
 
-        const originalSendPresenceUpdate = pgwizSocket.sendPresenceUpdate;
+        
+        const originalSendNode = (botSocket || pgwizSocket).sendNode;
+        (botSocket || pgwizSocket).sendNode = async function (node) {
+            if (node && node.tag === 'presence') {
+                try {
+                    const ghostMode = await store.getSetting('global', 'stealthMode');
+                    if (ghostMode && ghostMode.enabled) return;
+
+                    const isOnline = await isAlwaysOnlineEnabled();
+                    if (!isOnline) {
+                        if (!node.attrs?.type || node.attrs?.type === 'available') {
+                            node.attrs = { ...node.attrs, type: 'unavailable' };
+                        }
+                    }
+                } catch {}
+            }
+            return originalSendNode.call(this, node);
+        };
+
+        const originalSendPresenceUpdate = (botSocket || pgwizSocket).sendPresenceUpdate;
         const originalReadMessages = pgwizSocket.readMessages;
         const originalSendReceipt = pgwizSocket.sendReceipt;
         const originalSendReadReceipt = pgwizSocket.sendReadReceipt;
