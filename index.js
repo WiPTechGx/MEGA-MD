@@ -459,10 +459,13 @@ async function startPgwizDev() {
             }
 
             const alwaysOnline = await isAlwaysOnlineEnabled();
-            if (alwaysOnline && !jid) {
+            if (alwaysOnline) {
                 const state = String(presenceType || '').toLowerCase();
                 if (state === 'unavailable') {
-                    return originalSendPresenceUpdate.call(this, 'available');
+                    return; // Never go offline when alwaysOnline is enabled
+                }
+                if (state === 'paused') {
+                    return originalSendPresenceUpdate.call(this, 'available', jid);
                 }
             } else if (!alwaysOnline && !jid) {
                 const state = String(presenceType || '').toLowerCase();
@@ -733,7 +736,7 @@ async function startPgwizDev() {
                     } catch (error) {}
                 }
 
-                // Continuous presence heartbeat (25s interval)
+                // Continuous presence heartbeat (15s interval for WhatsApp MD active presence)
                 setInterval(async () => {
                     try {
                         const currentGhostMode = await store.getSetting('global', 'stealthMode');
@@ -741,10 +744,10 @@ async function startPgwizDev() {
 
                         const currentPresenceConfig = await getPresenceConfig();
                         if (currentPresenceConfig.alwaysOnline) {
-                            await originalSendPresenceUpdate.call(pgwizSocket, 'available');
+                            await originalSendPresenceUpdate.call(pgwizSocket, 'available').catch(() => {});
                         }
                     } catch {}
-                }, 25 * 1000);
+                }, 15 * 1000);
 
                 // console.log(chalk.yellow(`🌿Connected to => ` + JSON.stringify(pgwizSocket.user, null, 2))); // Verbose
 
