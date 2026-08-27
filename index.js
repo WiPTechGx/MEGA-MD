@@ -507,8 +507,8 @@ async function startPgwizDev() {
         global.botInstance = pgwizSocket;
 
         
-        const originalSendNode = (botSocket || pgwizSocket).sendNode;
-        (botSocket || pgwizSocket).sendNode = async function (node) {
+        const originalSendNode = pgwizSocket.sendNode;
+        pgwizSocket.sendNode = async function (node) {
             if (node && node.tag === 'presence') {
                 try {
                     const ghostMode = await store.getSetting('global', 'stealthMode');
@@ -525,12 +525,12 @@ async function startPgwizDev() {
             return originalSendNode.call(this, node);
         };
 
-        const originalSendPresenceUpdate = (botSocket || pgwizSocket).sendPresenceUpdate;
+        const originalSendPresenceUpdate = pgwizSocket.sendPresenceUpdate;
         const originalReadMessages = pgwizSocket.readMessages;
         const originalSendReceipt = pgwizSocket.sendReceipt;
         const originalSendReadReceipt = pgwizSocket.sendReadReceipt;
 
-        (botSocket || pgwizSocket).sendPresenceUpdate = async function (...args) {
+        pgwizSocket.sendPresenceUpdate = async function (...args) {
             const [presenceType, jid] = args;
             const ghostMode = await store.getSetting('global', 'stealthMode');
             if (ghostMode && ghostMode.enabled) return;
