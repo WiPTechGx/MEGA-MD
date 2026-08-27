@@ -944,10 +944,7 @@ async function startPgwizDev() {
             await handleStatus(pgwizSocket, status);
         });
 
-        pgwizSocket.ev.on('messages.reaction', async (reaction) => {
-            await handleStatus(pgwizSocket, reaction);
-        });
-
+        
         return pgwizSocket;
     } catch (error) {
         printLog('error', `Error in startPgwizDev: ${error.message}`);
