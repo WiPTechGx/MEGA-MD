@@ -1,4 +1,4 @@
-const fetch = require('node-fetch');
+// Lazy-loaded: const fetch = require('node-fetch');
 module.exports = {
   command: 'flirt',
   aliases: ['flirty', 'pickuplines'],
@@ -6,6 +6,7 @@ module.exports = {
   description: 'Get a random flirt message',
   usage: '.flirt',
   async handler(sock, message, args, context = {}) {
+    const fetch = require('node-fetch');
     const chatId = context.chatId || message.key.remoteJid;
     try {
       const shizokeys = 'shizo';

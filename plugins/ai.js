@@ -15,8 +15,8 @@ const settings = require('../settings');
  *****************************************************************************/
 
 
-const axios = require('axios');
-const fetch = require('node-fetch');
+// Lazy-loaded: const axios = require('axios');
+// Lazy-loaded: const fetch = require('node-fetch');
 
 module.exports = {
   command: 'gpt',
@@ -25,6 +25,8 @@ module.exports = {
   description: 'Ask a question to AI (GPT or Gemini)',
   usage: '.gpt <question> or .gemini <question>',
   async handler(sock, message, args, context = {}) {
+    const fetch = require('node-fetch');
+    const axios = require('axios');
     const chatId = context.chatId || message.key.remoteJid;
     const command = (args[0] || '').toLowerCase();
     const query = args.join(' ').trim();

@@ -1,4 +1,4 @@
-const axios = require('axios');
+// Lazy-loaded: const axios = require('axios');
 const settings = require('../settings'); // Settings import fixed
 const { channelInfo } = require('../lib/messageConfig');
 
@@ -10,6 +10,7 @@ module.exports = {
   usage: '.wasted @user',
 
   async handler(sock, message, args, context = {}) {
+    const axios = require('axios');
     const chatId = context.chatId || message.key.remoteJid;
     let userToWaste;
     if (message.message?.extendedTextMessage?.contextInfo?.mentionedJid?.length > 0) {

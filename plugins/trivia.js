@@ -1,4 +1,4 @@
-const axios = require('axios');
+// Lazy-loaded: const axios = require('axios');
 
 let triviaGames = {};
 
@@ -10,6 +10,7 @@ module.exports = {
   usage: '.trivia [answer]',
   
   async handler(sock, message, args, context) {
+    const axios = require('axios');
     const { chatId, channelInfo } = context;
     
     if (args.length === 0) {

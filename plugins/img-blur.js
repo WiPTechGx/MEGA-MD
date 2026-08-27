@@ -1,6 +1,6 @@
 const settings = require('../settings');
 const { downloadMediaMessage } = require('@whiskeysockets/baileys');
-const sharp = require('sharp');
+// Lazy-loaded: const sharp = require('sharp');
 
 module.exports = {
   command: 'blur',
@@ -9,6 +9,7 @@ module.exports = {
   description: 'Apply a blur effect to an image',
   usage: '.blur (reply to an image or send image with caption)',
   async handler(sock, message, args, context = {}) {
+    const sharp = require('sharp');
     const chatId = context.chatId || message.key.remoteJid;
     const quotedMessage = message.message?.extendedTextMessage?.contextInfo?.quotedMessage;
     try {

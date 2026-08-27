@@ -1,5 +1,5 @@
-const axios = require('axios');
-const FormData = require('form-data');
+// Lazy-loaded: const axios = require('axios');
+// Lazy-loaded: const FormData = require('form-data');
 const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
 
 async function getImageBuffer(message) {
@@ -20,6 +20,8 @@ module.exports = {
   description: 'Remove background from an image',
   usage: '.removebg (reply to image or send image with caption)',
   async handler(sock, message, args, context = {}) {
+    const FormData = require('form-data');
+    const axios = require('axios');
     const chatId = context.chatId || message.key.remoteJid;
 
     try {

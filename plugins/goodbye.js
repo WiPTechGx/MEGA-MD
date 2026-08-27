@@ -1,6 +1,6 @@
 const { handleGoodbye } = require('../lib/welcome');
 const { isGoodByeOn, getGoodbye } = require('../lib/index');
-const fetch = require('node-fetch');
+// Lazy-loaded: const fetch = require('node-fetch');
 
 async function handleLeaveEvent(sock, id, participants) {
     const isGoodbyeEnabled = await isGoodByeOn(id);
@@ -104,6 +104,7 @@ module.exports = {
     adminOnly: true,
 
     async handler(sock, message, args, context = {}) {
+    const fetch = require('node-fetch');
         const chatId = context.chatId || message.key.remoteJid;
         const matchText = args.join(' ');
 

@@ -1,4 +1,4 @@
-const fetch = require('node-fetch');
+// Lazy-loaded: const fetch = require('node-fetch');
 
 module.exports = {
   command: 'lyrics',
@@ -7,6 +7,7 @@ module.exports = {
   description: 'Get lyrics of a song along with artist and image',
   usage: '.lyrics <song name>',
   async handler(sock, message, args, context = {}) {
+    const fetch = require('node-fetch');
     const chatId = context.chatId || message.key.remoteJid;
     const songTitle = args.join(' ').trim();
 

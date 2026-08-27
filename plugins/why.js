@@ -1,4 +1,4 @@
-const axios = require('axios');
+// Lazy-loaded: const axios = require('axios');
 
 async function fetchWithRetries(url, retries = 3, delay = 2000) {
   let attempt = 0;
@@ -24,6 +24,7 @@ module.exports = {
   usage: '.why',
 
   async handler(sock, message, args, context = {}) {
+    const axios = require('axios');
     const chatId = context.chatId || message.key.remoteJid;
 
     try {

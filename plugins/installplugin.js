@@ -1,4 +1,4 @@
-const axios = require('axios');
+// Lazy-loaded: const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
 
@@ -16,6 +16,7 @@ module.exports = {
    * @param {object} context - additional context
    */
   async handler(sock, message, args, context = {}) {
+    const axios = require('axios');
     const chatId = context.chatId || message.key.remoteJid;
 
     const text = args?.[0];

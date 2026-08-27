@@ -1,5 +1,5 @@
 const { channelInfo } = require('../lib/messageConfig');
-const axios = require('axios');
+// Lazy-loaded: const axios = require('axios');
 const settings = require('../settings');
 
 module.exports = {
@@ -10,6 +10,7 @@ module.exports = {
   usage: '.character @user',
 
   async handler(sock, message, args, context = {}) {
+    const axios = require('axios');
     const chatId = context.chatId || message.key.remoteJid;
     let userToAnalyze;
 

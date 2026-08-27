@@ -1,4 +1,4 @@
-const fetch = require('node-fetch');
+// Lazy-loaded: const fetch = require('node-fetch');
 
 const BASE = 'https://shizoapi.onrender.com/api/pies';
 const VALID_COUNTRIES = ['china', 'indonesia', 'japan', 'korea', 'hijab'];
@@ -19,6 +19,7 @@ module.exports = {
   description: 'Get a pies image from a specific country',
   usage: `.pies <country>\nAvailable countries: ${VALID_COUNTRIES.join(', ')}`,
   async handler(sock, message, args, context = {}) {
+    const fetch = require('node-fetch');
     const chatId = context.chatId || message.key.remoteJid;
     const sub = (args[0] || '').toLowerCase();
 

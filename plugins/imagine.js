@@ -1,4 +1,4 @@
-const axios = require('axios');
+// Lazy-loaded: const axios = require('axios');
 
 module.exports = {
   command: 'imagine',
@@ -7,6 +7,7 @@ module.exports = {
   description: 'Generate an AI image based on your prompt',
   usage: '.imagine <prompt>',
   async handler(sock, message, args, context = {}) {
+    const axios = require('axios');
     const chatId = context.chatId || message.key.remoteJid;
     const imagePrompt = args.join(' ').trim();
 

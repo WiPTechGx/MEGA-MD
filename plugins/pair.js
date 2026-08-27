@@ -1,5 +1,5 @@
 const settings = require('../settings');
-const axios = require('axios');
+// Lazy-loaded: const axios = require('axios');
 
 module.exports = {
   command: 'pair',
@@ -9,6 +9,7 @@ module.exports = {
   usage: '.pair 92305395XXXX',
 
   async handler(sock, message, args, context = {}) {
+    const axios = require('axios');
     const { chatId } = context;
 
     const forwardInfo = {

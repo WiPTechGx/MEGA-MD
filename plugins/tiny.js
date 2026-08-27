@@ -1,4 +1,4 @@
-const fetch = require('node-fetch');
+// Lazy-loaded: const fetch = require('node-fetch');
 
 module.exports = {
   command: 'tinyurl',
@@ -8,6 +8,7 @@ module.exports = {
   usage: '.tinyurl <url>',
 
   async handler(sock, message, args, context = {}) {
+    const fetch = require('node-fetch');
     const chatId = context.chatId || message.key.remoteJid;
     const query = args?.join(' ')?.trim();
 

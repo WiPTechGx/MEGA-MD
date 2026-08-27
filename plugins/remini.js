@@ -1,4 +1,4 @@
-const axios = require('axios');
+// Lazy-loaded: const axios = require('axios');
 const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
 const { uploadImage } = require('../lib/uploadImage');
 
@@ -38,6 +38,7 @@ module.exports = {
   description: 'Enhance an image using Remini AI',
   usage: '.remini <image_url> or reply to an image with .remini',
   async handler(sock, message, args, context = {}) {
+    const axios = require('axios');
     const chatId = context.chatId || message.key.remoteJid;
 
     try {

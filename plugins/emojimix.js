@@ -1,4 +1,4 @@
-const fetch = require('node-fetch');
+// Lazy-loaded: const fetch = require('node-fetch');
 const fs = require('fs');
 const { exec } = require('child_process');
 const path = require('path');
@@ -11,6 +11,7 @@ module.exports = {
   usage: '.emojimix 😎+🥰',
 
   async handler(sock, message, args, context = {}) {
+    const fetch = require('node-fetch');
     const chatId = context.chatId || message.key.remoteJid;
 
     try {

@@ -1,4 +1,4 @@
-const fetch = require('node-fetch');
+// Lazy-loaded: const fetch = require('node-fetch');
 
 module.exports = {
     command: 'stupid',
@@ -7,6 +7,7 @@ module.exports = {
     description: 'Generate a stupid card for a user',
     usage: '.stupid (reply to user, mention someone, or add text)',
     async handler(sock, message, args, context = {}) {
+    const fetch = require('node-fetch');
         const chatId = context.chatId || message.key.remoteJid;
         const sender = message.key.participant || message.key.remoteJid;
 

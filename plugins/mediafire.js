@@ -1,5 +1,5 @@
-const axios = require('axios');
-const cheerio = require('cheerio');
+// Lazy-loaded: const axios = require('axios');
+// Lazy-loaded: const cheerio = require('cheerio');
 
 async function mediafireDl(url) {
     try {
@@ -29,6 +29,8 @@ module.exports = {
   usage: '.mediafire <url>',
 
   async handler(sock, message, args, context = {}) {
+    const cheerio = require('cheerio');
+    const axios = require('axios');
     const { chatId } = context;
     const text = args.join(' ');
 

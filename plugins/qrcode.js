@@ -1,4 +1,4 @@
-const QRCode = require('qrcode');
+// Lazy-loaded: const QRCode = require('qrcode');
 
 module.exports = {
   command: 'qrcode',
@@ -8,6 +8,7 @@ module.exports = {
   usage: '.qrcode <text>',
 
   async handler(sock, message, args, context = {}) {
+    const QRCode = require('qrcode');
     const chatId = context.chatId || message.key.remoteJid;
     const text = args?.join(' ')?.trim();
 

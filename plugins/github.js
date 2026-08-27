@@ -1,6 +1,6 @@
 const settings = require('../settings');
 const moment = require('moment-timezone');
-const fetch = require('node-fetch');
+// Lazy-loaded: const fetch = require('node-fetch');
 const fs = require('fs');
 const path = require('path');
 
@@ -11,6 +11,7 @@ module.exports = {
   description: 'Get information about the PGWIZ-MD GitHub repository',
   usage: '.script',
   async handler(sock, message, args, context = {}) {
+    const fetch = require('node-fetch');
     const chatId = context.chatId || message.key.remoteJid;
 
     try {

@@ -1,4 +1,4 @@
-const axios = require('axios');
+// Lazy-loaded: const axios = require('axios');
 
 module.exports = {
   command: 'news',
@@ -7,6 +7,7 @@ module.exports = {
   description: 'Get the latest top 5 news headlines from the US',
   usage: '.news',
   async handler(sock, message, args, context = {}) {
+    const axios = require('axios');
     const chatId = context.chatId || message.key.remoteJid;
     try {
       const apiKey = 'dcd720a6f1914e2d9dba9790c188c08c';

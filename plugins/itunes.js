@@ -1,4 +1,4 @@
-const fetch = require('node-fetch');
+// Lazy-loaded: const fetch = require('node-fetch');
 
 module.exports = {
   command: 'itunes',
@@ -7,6 +7,7 @@ module.exports = {
   description: 'Get detailed information about a song from iTunes',
   usage: '.itunes <song name>',
   async handler(sock, message, args, context = {}) {
+    const fetch = require('node-fetch');
     const chatId = context.chatId || message.key.remoteJid;
     const text = args.join(' ').trim();
 

@@ -1,4 +1,4 @@
-const axios = require('axios');
+// Lazy-loaded: const axios = require('axios');
 
 const AXIOS_DEFAULTS = {
   timeout: 60000,
@@ -13,6 +13,7 @@ module.exports = {
   usage: '.customqr <text> | <size> | <color>',
   
   async handler(sock, message, args) {
+    const axios = require('axios');
     const chatId = message.key.remoteJid;
     const rawInput = args.join(' ').split('|').map(s => s.trim());
     

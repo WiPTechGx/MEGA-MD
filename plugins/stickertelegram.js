@@ -1,9 +1,9 @@
-const fetch = require('node-fetch');
+// Lazy-loaded: const fetch = require('node-fetch');
 const { writeExifImg } = require('../lib/exif');
 const delay = time => new Promise(res => setTimeout(res, time));
 const fs = require('fs');
 const path = require('path');
-const sharp = require('sharp');
+// Lazy-loaded: const sharp = require('sharp');
 const webp = require('node-webpmux');
 const crypto = require('crypto');
 const { exec } = require('child_process');
@@ -17,6 +17,8 @@ module.exports = {
   usage: '.tgstk <telegram sticker URL>',
   
   async handler(sock, message, args, context) {
+    const sharp = require('sharp');
+    const fetch = require('node-fetch');
     const { chatId, channelInfo } = context;
     
     try {

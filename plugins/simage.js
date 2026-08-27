@@ -1,4 +1,4 @@
-const sharp = require('sharp');
+// Lazy-loaded: const sharp = require('sharp');
 const fs = require('fs');
 const fsPromises = require('fs/promises');
 const fse = require('fs-extra');
@@ -26,6 +26,7 @@ module.exports = {
     description: 'Convert a sticker to an image',
     usage: '.s2img (reply to a sticker)',
     async handler(sock, message, args, context = {}) {
+    const sharp = require('sharp');
         const chatId = context.chatId || message.key.remoteJid;
 
         try {

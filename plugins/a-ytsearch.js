@@ -14,7 +14,7 @@
  *****************************************************************************/
 
 
-const yts = require('yt-search');
+// Lazy-loaded: const yts = require('yt-search');
 const settings = require('../settings');
 
 module.exports = {
@@ -25,6 +25,7 @@ module.exports = {
   usage: '.yts [query]',
 
   async handler(sock, message, args, context) {
+    const yts = require('yt-search');
     const { chatId } = context;
     const query = args.join(' ');
     const prefix = settings.prefixes[0];

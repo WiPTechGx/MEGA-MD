@@ -1,6 +1,6 @@
 const { downloadMediaMessage } = require('@whiskeysockets/baileys')
-const axios = require('axios')
-const FormData = require('form-data')
+// Lazy-loaded: const axios = require('axios')
+// Lazy-loaded: const FormData = require('form-data')
 const FileType = require('file-type')
 
 async function getMediaBuffer(msg, sock) {
@@ -38,6 +38,8 @@ module.exports = {
   usage: '.tourl (reply to media or send media with caption)',
 
   async handler(sock, message) {
+    const FormData = require('form-data')
+    const axios = require('axios')
     const chatId = message.key.remoteJid
 
     try {

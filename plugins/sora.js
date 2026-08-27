@@ -1,4 +1,4 @@
-const axios = require('axios');
+// Lazy-loaded: const axios = require('axios');
 
 module.exports = {
   command: 'sora',
@@ -8,6 +8,7 @@ module.exports = {
   usage: '.sora <prompt>',
   
   async handler(sock, message, args, context) {
+    const axios = require('axios');
     const { chatId, channelInfo } = context;
     
     try {

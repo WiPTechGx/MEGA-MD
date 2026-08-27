@@ -1,4 +1,4 @@
-const simpleGit = require('simple-git');
+// Lazy-loaded: const simpleGit = require('simple-git');
 
 module.exports = {
   command: 'gitpull',
@@ -9,6 +9,7 @@ module.exports = {
   ownerOnly: true,
 
   async handler(sock, message) {
+    const simpleGit = require('simple-git');
     const chatId = message.key.remoteJid;
     const commandHandler = require('../lib/commandHandler');
     const git = simpleGit();

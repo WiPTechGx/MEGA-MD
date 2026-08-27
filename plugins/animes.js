@@ -1,4 +1,4 @@
-const axios = require('axios');
+// Lazy-loaded: const axios = require('axios');
 
 const supportedAnimes = [
   'akira','akiyama','anna','asuna','ayuzawa','boruto','chiho','chitoge',
@@ -61,6 +61,7 @@ module.exports = {
   usage: '.animes <anime_name>',
 
   async handler(sock, message, args, context = {}) {
+    const axios = require('axios');
     const chatId = context.chatId || message.key.remoteJid;
     const input = args[0] ? args[0] : '';
     const typeLower = input.toLowerCase();

@@ -1,6 +1,6 @@
 const settings = require('../settings');
-const axios = require('axios');
-const FormData = require('form-data');
+// Lazy-loaded: const axios = require('axios');
+// Lazy-loaded: const FormData = require('form-data');
 const fs = require('fs');
 const path = require('path');
 const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
@@ -13,6 +13,8 @@ module.exports = {
   usage: 'Reply to an image with .invert',
 
   async handler(sock, message, args, context = {}) {
+    const FormData = require('form-data');
+    const axios = require('axios');
     const chatId = context.chatId || message.key.remoteJid;
 
     try {

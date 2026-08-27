@@ -1,5 +1,5 @@
-const axios = require('axios');
-const yts = require('yt-search');
+// Lazy-loaded: const axios = require('axios');
+// Lazy-loaded: const yts = require('yt-search');
 
 const izumi = {
   baseURL: 'https://izumiiiiiiii.dpdns.org'
@@ -89,6 +89,8 @@ module.exports = {
   usage: '.video <youtube link | search query>',
 
   async handler(sock, message, args, context = {}) {
+    const yts = require('yt-search');
+    const axios = require('axios');
     const chatId = context.chatId || message.key.remoteJid;
 
     try {

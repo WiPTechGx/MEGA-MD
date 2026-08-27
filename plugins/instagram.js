@@ -1,4 +1,4 @@
-const axios = require('axios');
+// Lazy-loaded: const axios = require('axios');
 const settings = require('../settings');
 
 module.exports = {
@@ -9,6 +9,7 @@ module.exports = {
   usage: '.instagram <Instagram URL>',
 
   async handler(sock, message, args, context = {}) {
+    const axios = require('axios');
     const chatId = context.chatId || message.key.remoteJid;
     const channelInfo = context.channelInfo || {};
 

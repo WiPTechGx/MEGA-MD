@@ -1,5 +1,5 @@
 const settings = require('../settings');
-const axios = require('axios');
+// Lazy-loaded: const axios = require('axios');
 
 const AXIOS_DEFAULTS = {
   timeout: 60000,
@@ -17,6 +17,7 @@ module.exports = {
   usage: '.fb <facebook video link>',
 
   async handler(sock, message, args, context = {}) {
+    const axios = require('axios');
     const chatId = context.chatId || message.key.remoteJid;
     const url =
       args.join(' ') ||

@@ -1,5 +1,5 @@
 
-const axios = require('axios');
+// Lazy-loaded: const axios = require('axios');
 
 module.exports = {
   command: 'snapchat',
@@ -9,6 +9,7 @@ module.exports = {
   usage: '.snapchat <Snapchat URL>',
 
   async handler(sock, message, args, context) {
+    const axios = require('axios');
     const { chatId, channelInfo, rawText } = context;
     
     const prefix = context.rawText.match(/^[.!#]/)?.[0] || '.';

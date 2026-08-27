@@ -1,5 +1,5 @@
 const settings = require('../settings');
-const fetch = require('node-fetch');
+// Lazy-loaded: const fetch = require('node-fetch');
 
 module.exports = {
     command: 'simp',
@@ -8,6 +8,7 @@ module.exports = {
     description: 'Generate a simp card for a user',
     usage: '.simp (reply to user or mention someone)',
     async handler(sock, message, args, context = {}) {
+    const fetch = require('node-fetch');
         const chatId = context.chatId || message.key.remoteJid;
         const sender = message.key.participant || message.key.remoteJid;
 

@@ -1,4 +1,4 @@
-const fetch = require('node-fetch');
+// Lazy-loaded: const fetch = require('node-fetch');
 
 module.exports = {
     command: 'shayari',
@@ -7,6 +7,7 @@ module.exports = {
     description: 'Get a random shayari',
     usage: '.shayari',
     async handler(sock, message, args, context = {}) {
+    const fetch = require('node-fetch');
         const chatId = context.chatId || message.key.remoteJid;
         try {
             const response = await fetch('https://shizoapi.onrender.com/api/texts/shayari?apikey=shizo');

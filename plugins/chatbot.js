@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const fetch = require('node-fetch');
+// Lazy-loaded: const fetch = require('node-fetch');
 const store = require('../lib/lightweight_store');
 
 const MONGO_URL = process.env.MONGO_URL;
@@ -355,6 +355,7 @@ module.exports = {
     adminOnly: true,
 
     async handler(sock, message, args, context = {}) {
+    const fetch = require('node-fetch');
         const chatId = context.chatId || message.key.remoteJid;
         const match = args.join(' ').toLowerCase();
 

@@ -1,4 +1,4 @@
-const axios = require('axios');
+// Lazy-loaded: const axios = require('axios');
 
 module.exports = {
   command: 'joke',
@@ -7,6 +7,7 @@ module.exports = {
   description: 'Get a random dad joke',
   usage: '.joke',
   async handler(sock, message, args, context = {}) {
+    const axios = require('axios');
     const chatId = context.chatId || message.key.remoteJid;
     try {
       const response = await axios.get('https://icanhazdadjoke.com/', {

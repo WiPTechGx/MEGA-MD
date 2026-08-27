@@ -1,5 +1,5 @@
 const Qasim = require('api-qasim');
-const axios = require('axios');
+// Lazy-loaded: const axios = require('axios');
 
 module.exports = {
   command: 'android',
@@ -9,6 +9,7 @@ module.exports = {
   usage: '.android <apk_name>',
 
   async handler(sock, message, args, context = {}) {
+    const axios = require('axios');
     const chatId = context.chatId || message.key.remoteJid;
     const query = args.join(' ').trim();
 

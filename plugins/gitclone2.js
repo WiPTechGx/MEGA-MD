@@ -1,5 +1,5 @@
 const settings = require('../settings');
-const axios = require('axios');
+// Lazy-loaded: const axios = require('axios');
 
 module.exports = {
   command: 'gitclone2',
@@ -9,6 +9,7 @@ module.exports = {
   usage: '.gitclone2 <github-link>',
 
   async handler(sock, message, args, context = {}) {
+    const axios = require('axios');
     const { chatId } = context;
     const regex = /(?:https|git)(?::\/\/|@)github\.com[\/:]([^\/:]+)\/(.+)/i;
 

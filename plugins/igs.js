@@ -1,5 +1,5 @@
 const { igdl } = require('ruhend-scraper');
-const axios = require('axios');
+// Lazy-loaded: const axios = require('axios');
 const { exec } = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -223,6 +223,7 @@ module.exports = {
   usage: '.igs <instagram URL>',
   
   async handler(sock, message, args, context) {
+    const axios = require('axios');
     const { chatId, channelInfo } = context;
     
     try {

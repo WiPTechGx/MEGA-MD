@@ -1,4 +1,4 @@
-const axios = require('axios');
+// Lazy-loaded: const axios = require('axios');
 const { exec } = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -92,6 +92,7 @@ module.exports = {
   description: 'Send anime stickers or quotes',
   usage: '.animu <type>',
   async handler(sock, message, args, context = {}) {
+    const axios = require('axios');
     const chatId = context.chatId || message.key.remoteJid;
     const subArg = args && args[0] ? args[0] : '';
     const type = normalizeType(subArg);

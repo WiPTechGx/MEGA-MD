@@ -1,4 +1,4 @@
-const axios = require('axios');
+// Lazy-loaded: const axios = require('axios');
 
 // Utility to decode Unicode escapes
 function decodeUnicode(str) {
@@ -16,6 +16,7 @@ module.exports = {
   usage: '.genshin <UID>',
 
   async handler(sock, message, args, context = {}) {
+    const axios = require('axios');
     const chatId = context.chatId || message.key.remoteJid;
 
     if (!args.length) {

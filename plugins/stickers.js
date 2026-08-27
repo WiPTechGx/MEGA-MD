@@ -1,4 +1,4 @@
-const axios = require('axios');
+// Lazy-loaded: const axios = require('axios');
 
 module.exports = {
   command: 'stickers',
@@ -8,6 +8,7 @@ module.exports = {
   usage: '.stickers <search term>',
 
   async handler(sock, message, args, context = {}) {
+    const axios = require('axios');
     const chatId = context.chatId || message.key.remoteJid;
     const text = args?.join(' ')?.trim();
 

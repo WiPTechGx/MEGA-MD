@@ -1,4 +1,4 @@
-const axios = require('axios');
+// Lazy-loaded: const axios = require('axios');
 
 module.exports = {
   command: 'convert',
@@ -8,6 +8,7 @@ module.exports = {
   usage: '.convert <from_unit> <to_unit> <value>',
 
   async handler(sock, message, args, context = {}) {
+    const axios = require('axios');
     const chatId = context.chatId || message.key.remoteJid;
 
     if (!args || args.length < 3) {

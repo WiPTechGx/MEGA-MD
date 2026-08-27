@@ -1,4 +1,4 @@
-const axios = require('axios');
+// Lazy-loaded: const axios = require('axios');
 
 module.exports = {
   command: 'pingweb',
@@ -8,6 +8,7 @@ module.exports = {
   usage: '.pingweb [website URL]',
   
   async handler(sock, message, args, context) {
+    const axios = require('axios');
     const { chatId, channelInfo, rawText } = context;
     
     const prefix = rawText.match(/^[.!#]/)?.[0] || '.';

@@ -1,7 +1,7 @@
 const settings = require('../settings');
 const { handleWelcome } = require('../lib/welcome');
 const { isWelcomeOn, getWelcome } = require('../lib/index');
-const fetch = require('node-fetch');
+// Lazy-loaded: const fetch = require('node-fetch');
 
 module.exports = {
   command: 'welcome',
@@ -13,6 +13,7 @@ module.exports = {
   adminOnly: true,
 
   async handler(sock, message, args, context) {
+    const fetch = require('node-fetch');
     const { chatId, channelInfo } = context;
 
     const matchText = args.join(' ');

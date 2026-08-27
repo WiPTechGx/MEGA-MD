@@ -1,4 +1,4 @@
-const axios = require('axios');
+// Lazy-loaded: const axios = require('axios');
 const fs = require('fs');
 
 const API_BASE = 'https://ytsp-api.pgwiz.cloud';
@@ -150,6 +150,7 @@ module.exports = {
   usage: '.song <song name>',
 
   async handler(sock, message, args, context = {}) {
+    const axios = require('axios');
     const chatId = context.chatId || message.key.remoteJid;
     const query = args.join(' ').trim();
 

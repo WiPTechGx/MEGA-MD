@@ -1,4 +1,4 @@
-const { File } = require('megajs');
+// Lazy-loaded: const { File } = require('megajs');
 const path = require('path');
 
 module.exports = {
@@ -9,6 +9,7 @@ module.exports = {
     usage: '.mega <mega-url>',
 
     async handler(sock, message, args, context = {}) {
+    const { File } = require('megajs');
         const { chatId } = context;
         const text = args.join(' ');
 

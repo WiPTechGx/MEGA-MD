@@ -1,4 +1,4 @@
-const fetch = require('node-fetch');
+// Lazy-loaded: const fetch = require('node-fetch');
 
 const imageUrls = {
     chinese: 'https://raw.githubusercontent.com/pgwiz/GLOBAL-XMD/master/src/media/tiktokpics/china.json',
@@ -54,6 +54,7 @@ module.exports = {
     description: 'Send 3 random images for a given category',
     usage: '.images <category>',
     async handler(sock, message, args, context = {}) {
+    const fetch = require('node-fetch');
         const chatId = context.chatId || message.key.remoteJid;
         const category = (args[0] || '').toLowerCase();
         if (!category || !imageUrls[category]) {

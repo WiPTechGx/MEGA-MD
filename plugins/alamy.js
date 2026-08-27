@@ -15,7 +15,7 @@ const settings = require('../settings');
  *****************************************************************************/
 
 
-const axios = require('axios');
+// Lazy-loaded: const axios = require('axios');
 
 module.exports = {
   command: 'alamy',
@@ -25,6 +25,7 @@ module.exports = {
   usage: '.alamy <Alamy URL>',
 
   async handler(sock, message, args, context = {}) {
+    const axios = require('axios');
     const chatId = context.chatId || message.key.remoteJid;
     const url = args?.[0]?.trim();
 
