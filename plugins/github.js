@@ -1,5 +1,6 @@
 const settings = require('../settings');
-const moment = require('moment-timezone');
+let moment;
+try { moment = require('moment-timezone'); } catch { try { moment = require('moment'); } catch { moment = () => ({ format: () => new Date().toISOString() }); } }
 // Lazy-loaded: const fetch = require('node-fetch');
 const fs = require('fs');
 const path = require('path');
