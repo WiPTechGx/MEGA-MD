@@ -621,6 +621,7 @@ async function startPgwizDev() {
                     console.log(chalk.yellow(`   ➜ From: ${sender} (fromMe: ${fromMe}, isGroup: ${isGroup}, hasMsg: ${hasMsg})`));
 
                     if (mek.key && mek.key.remoteJid === 'status@broadcast') {
+                        if (mek.key.fromMe) continue; // Ignore own statuses & outbound reaction echoes
                         console.log(chalk.green(`[STATUS] 📢 Processing status@broadcast message ${mek.key.id} from ${sender}`));
                         handleStatus(pgwizSocket, { messages: [mek], type: chatUpdate.type }).catch(err => printLog('error', `AutoStatus Error: ${err.message}`));
                     }
