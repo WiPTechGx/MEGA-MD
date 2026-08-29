@@ -1,4 +1,3 @@
-
 async function handleAutoDownloadStatus(sock, msg) {
     try {
         const isSaveEnabled = await store.getSetting('global', 'autoStatusSave');
@@ -47,10 +46,9 @@ const HAS_DB = !!(MONGO_URL || POSTGRES_URL || MYSQL_URL || SQLITE_URL);
 
 // Get random emoji from STATUS_EMOJIS env variable (comma-separated) or default to 💚
 function getRandomStatusEmoji() {
-    const emojis = (process.env.STATUS_EMOJIS || '💚').split(',').map(e => e.trim()).filter(Boolean);
+    const emojis = (process.env.STATUS_EMOJIS || '💚,❤️,🔥,😍,👏').split(',').map(e => e.trim()).filter(Boolean);
     return emojis[Math.floor(Math.random() * emojis.length)];
 }
-
 
 const configPath = path.join(__dirname, '../data/autoStatus.json');
 
@@ -59,8 +57,8 @@ if (!HAS_DB && !fs.existsSync(configPath)) {
         fs.mkdirSync(path.dirname(configPath), { recursive: true });
     }
     fs.writeFileSync(configPath, JSON.stringify({
-        enabled: false,
-        reactOn: false
+        enabled: true,
+        reactOn: true
     }, null, 2));
 }
 
@@ -81,50 +79,39 @@ async function readConfig() {
         if (HAS_DB) {
             const config = await store.getSetting('global', 'autoStatus');
 
-            // If no config exists, check environment variables for initial setup
             if (!config) {
-                const envEnabled = process.env.AUTO_STATUS_VIEW === 'true';
-                const envReactOn = process.env.AUTO_STATUS_REACT === 'true';
+                const envEnabled = process.env.AUTO_STATUS_VIEW !== 'false';
+                const envReactOn = process.env.AUTO_STATUS_REACT !== 'false';
 
-                if (envEnabled || envReactOn) {
-                    const initialConfig = { enabled: envEnabled, reactOn: envReactOn };
-                    await store.saveSetting('global', 'autoStatus', initialConfig);
-                    console.log('[AUTOSTATUS] Initialized from environment variables:', initialConfig);
-                    return initialConfig;
-                }
+                const initialConfig = { enabled: envEnabled, reactOn: envReactOn };
+                await store.saveSetting('global', 'autoStatus', initialConfig);
+                return initialConfig;
             }
 
-            return config || { enabled: false, reactOn: false };
+            return config || { enabled: true, reactOn: true };
         } else {
-            // File system mode
             if (!fs.existsSync(configPath)) {
-                // Check environment variables for initial setup
-                const envEnabled = process.env.AUTO_STATUS_VIEW === 'true';
-                const envReactOn = process.env.AUTO_STATUS_REACT === 'true';
+                const envEnabled = process.env.AUTO_STATUS_VIEW !== 'false';
+                const envReactOn = process.env.AUTO_STATUS_REACT !== 'false';
 
                 const initialConfig = { enabled: envEnabled, reactOn: envReactOn };
                 fs.writeFileSync(configPath, JSON.stringify(initialConfig, null, 2));
-
-                if (envEnabled || envReactOn) {
-                    console.log('[AUTOSTATUS] Initialized from environment variables:', initialConfig);
-                }
-
                 return initialConfig;
             }
 
             const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
             return {
-                enabled: !!config.enabled,
-                reactOn: !!config.reactOn
+                enabled: config.enabled !== false,
+                reactOn: config.reactOn !== false
             };
         }
     } catch (error) {
         console.error('Error reading auto status config:', error);
-        return { enabled: false, reactOn: false };
+        return { enabled: true, reactOn: true };
     }
 }
 
-// Helper function to update .env file (improved version)
+// Helper function to update .env file
 function updateEnvFile(key, value) {
     try {
         const envPath = path.join(__dirname, '../.env');
@@ -134,15 +121,11 @@ function updateEnvFile(key, value) {
         const lines = content.split('\n');
         let found = false;
 
-        // Update existing key or add if not found
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i].trim();
-            // Skip comments and empty lines
             if (line.startsWith('#') || !line) continue;
 
-            // Check if this line contains our key
             if (line.startsWith(`${key}=`)) {
-                // Preserve quotes if value contains special characters
                 const quotedValue = (value.includes(' ') || value.includes(',') || value.includes('#'))
                     ? `"${value}"`
                     : value;
@@ -152,7 +135,6 @@ function updateEnvFile(key, value) {
             }
         }
 
-        // If key not found, add it before the last line
         if (!found) {
             const quotedValue = (value.includes(' ') || value.includes(',') || value.includes('#'))
                 ? `"${value}"`
@@ -161,7 +143,6 @@ function updateEnvFile(key, value) {
         }
 
         fs.writeFileSync(envPath, lines.join('\n'));
-        console.log(`[ENV] Updated ${key}="${value}"`);
     } catch (error) {
         console.error('[ENV] Error updating .env file:', error.message);
     }
@@ -169,15 +150,54 @@ function updateEnvFile(key, value) {
 
 async function writeConfig(config) {
     try {
+        // 1. Live dynamic in-memory update
+        process.env.AUTO_STATUS_VIEW = config.enabled ? 'true' : 'false';
+        process.env.AUTO_STATUS_REACT = config.reactOn ? 'true' : 'false';
+
+        // 2. Persist to database/store
         if (HAS_DB) {
             await store.saveSetting('global', 'autoStatus', config);
         } else {
             fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
         }
 
-        // Sync to .env file
+        // 3. Sync to local .env
         updateEnvFile('AUTO_STATUS_VIEW', config.enabled ? 'true' : 'false');
         updateEnvFile('AUTO_STATUS_REACT', config.reactOn ? 'true' : 'false');
+
+        // 4. Sync to Heroku if credentials present
+        let apiKey = process.env.HEROKU_API_KEY || process.env.HEROKU_API_TOKEN;
+        let appName = process.env.HEROKU_APP_NAME;
+        if (!apiKey || !appName) {
+            const storedAuth = await store.getSetting('global', 'herokuAuth');
+            if (storedAuth) {
+                apiKey = apiKey || storedAuth.apiKey;
+                appName = appName || storedAuth.appName;
+            }
+        }
+
+        if (apiKey && appName) {
+            const https = require('https');
+            const body = JSON.stringify({
+                AUTO_STATUS_VIEW: config.enabled ? 'true' : 'false',
+                AUTO_STATUS_REACT: config.reactOn ? 'true' : 'false'
+            });
+            const req = https.request({
+                hostname: 'api.heroku.com',
+                port: 443,
+                path: `/apps/${appName}/config-vars`,
+                method: 'PATCH',
+                headers: {
+                    'Accept': 'application/vnd.heroku+json; version=3',
+                    'Authorization': `Bearer ${apiKey}`,
+                    'Content-Type': 'application/json'
+                }
+            }, () => {});
+            req.on('error', () => {});
+            req.write(body);
+            req.end();
+            console.log(`[AUTOSTATUS] Live synced to Heroku app ${appName}`);
+        }
     } catch (error) {
         console.error('Error writing auto status config:', error);
     }
@@ -193,38 +213,61 @@ async function isStatusReactionEnabled() {
     return config.reactOn;
 }
 
+// Proven d8e4c0b status reaction engine
 async function reactToStatus(sock, statusKey) {
     try {
         const enabled = await isStatusReactionEnabled();
         if (!enabled || !sock) return;
 
-        const participant = statusKey.participant;
+        const participant = statusKey.participant || statusKey.remoteJid;
         if (!participant || participant === 'status@broadcast' || !participant.includes('@')) {
             return;
         }
 
         const emoji = getRandomStatusEmoji();
 
-        const reactionMessage = {
-            react: {
-                text: emoji,
-                key: {
-                    remoteJid: 'status@broadcast',
-                    id: statusKey.id,
-                    participant: participant
+        // 1. Primary: Proven relayMessage stanza with statusJidList
+        try {
+            await sock.relayMessage(
+                'status@broadcast',
+                {
+                    reactionMessage: {
+                        key: {
+                            remoteJid: 'status@broadcast',
+                            id: statusKey.id,
+                            participant: participant,
+                            fromMe: false
+                        },
+                        text: emoji
+                    }
+                },
+                {
+                    messageId: statusKey.id,
+                    statusJidList: [statusKey.remoteJid || 'status@broadcast', participant]
                 }
-            }
-        };
-
-        await sock.sendMessage(
-            'status@broadcast',
-            reactionMessage,
-            {
-                statusJidList: [participant]
-            }
-        );
-
-        console.log(`[AUTOSTATUS] ✅ Reacted ${emoji} to status from ${participant}`);
+            );
+            console.log(`[AUTOSTATUS] ✅ Reacted ${emoji} to status from ${participant.split('@')[0]}`);
+            return;
+        } catch (e1) {
+            // Fallback via sendMessage react
+            await sock.sendMessage(
+                'status@broadcast',
+                {
+                    react: {
+                        text: emoji,
+                        key: {
+                            remoteJid: 'status@broadcast',
+                            id: statusKey.id,
+                            participant: participant
+                        }
+                    }
+                },
+                {
+                    statusJidList: [participant]
+                }
+            );
+            console.log(`[AUTOSTATUS] ✅ Reacted ${emoji} (fallback) to status from ${participant.split('@')[0]}`);
+        }
     } catch (error) {
         console.error('[AUTOSTATUS] ❌ Error reacting to status:', error.message);
     }
@@ -232,8 +275,6 @@ async function reactToStatus(sock, statusKey) {
 
 // Track reacted statuses to prevent duplicates/loops
 const reactedStatuses = new Set();
-
-// Clear cache every hour to prevent memory leaks
 setInterval(() => reactedStatuses.clear(), 60 * 60 * 1000);
 
 async function handleStatusUpdate(sock, status) {
@@ -259,20 +300,11 @@ async function handleStatusUpdate(sock, status) {
             if (reactedStatuses.has(key.id)) continue;
             reactedStatuses.add(key.id);
 
-            // 1. Mark status as viewed/read first (required for reaction visibility)
-            try {
-                await sock.readMessages([{
-                    remoteJid: 'status@broadcast',
-                    id: key.id,
-                    participant: key.participant
-                }]);
-            } catch {}
+            // 1. Mark status as viewed (read receipt)
+            await sock.readMessages([key]).catch(() => {});
 
-            // Brief delay to ensure read receipt registers before reaction
-            await new Promise(resolve => setTimeout(resolve, 600));
-
-            // 2. Send status reaction
-            await reactToStatus(sock, key);
+            // 2. React to status with emoji
+            reactToStatus(sock, key).catch(() => {});
 
             // 3. Auto-download media if enabled
             if (msg.message) {
@@ -316,7 +348,8 @@ module.exports = {
                         `• \`.autostatus react off\` - Disable reaction\n` +
                         `• \`.autostatus ignore <num>\` - Ignore a contact\n` +
                         `• \`.autostatus unignore <num>\` - Un-ignore a contact\n` +
-                        `• \`.autostatus ignored\` - List ignored contacts`,
+                        `• \`.autostatus ignored\` - List ignored contacts\n\n` +
+                        `_⚡ Changes apply lively in runtime without restart!_`,
                     ...channelInfo
                 }, { quoted: message });
                 return;
@@ -329,8 +362,7 @@ module.exports = {
                 await writeConfig(config);
 
                 await sock.sendMessage(chatId, {
-                    text: '✅ *Auto status view enabled!*\n\n' +
-                        'Bot will now automatically view all contact statuses.',
+                    text: '✅ *Auto status view enabled!*\n⚡ Applied lively in runtime memory.',
                     ...channelInfo
                 }, { quoted: message });
 
@@ -339,16 +371,14 @@ module.exports = {
                 await writeConfig(config);
 
                 await sock.sendMessage(chatId, {
-                    text: '❌ *Auto status view disabled!*\n\n' +
-                        'Bot will no longer automatically view statuses.',
+                    text: '❌ *Auto status view disabled!*\n⚡ Applied lively in runtime memory.',
                     ...channelInfo
                 }, { quoted: message });
 
             } else if (command === 'react') {
                 if (!args[1]) {
                     await sock.sendMessage(chatId, {
-                        text: '❌ *Please specify on/off for reactions!*\n\n' +
-                            'Usage: `.autostatus react on/off`',
+                        text: '❌ *Please specify on/off for reactions!*\n\nUsage: `.autostatus react on/off`',
                         ...channelInfo
                     }, { quoted: message });
                     return;
@@ -361,8 +391,7 @@ module.exports = {
                     await writeConfig(config);
 
                     await sock.sendMessage(chatId, {
-                        text: '💫 *Status reactions enabled!*\n\n' +
-                            'Bot will now react to status updates with 💚',
+                        text: `💫 *Status reactions enabled!*\nEmojis: ${process.env.STATUS_EMOJIS || '💚,❤️,🔥,😍,👏'}\n⚡ Applied lively in runtime memory.`,
                         ...channelInfo
                     }, { quoted: message });
 
@@ -371,15 +400,13 @@ module.exports = {
                     await writeConfig(config);
 
                     await sock.sendMessage(chatId, {
-                        text: '❌ *Status reactions disabled!*\n\n' +
-                            'Bot will no longer react to status updates.',
+                        text: '❌ *Status reactions disabled!*\n⚡ Applied lively in runtime memory.',
                         ...channelInfo
                     }, { quoted: message });
 
                 } else {
                     await sock.sendMessage(chatId, {
-                        text: '❌ *Invalid reaction command!*\n\n' +
-                            'Usage: `.autostatus react on/off`',
+                        text: '❌ *Invalid reaction command!*\n\nUsage: `.autostatus react on/off`',
                         ...channelInfo
                     }, { quoted: message });
                 }
