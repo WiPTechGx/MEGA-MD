@@ -791,6 +791,14 @@ async function startPgwizDev() {
             if (connection == "open") {
                 global.botConnectedTime = Date.now(); // Track connection time for old message filtering
                 printLog('success', 'Bot connected successfully!');
+                try {
+                    const { isAlwaysOnlineEnabled, startAlwaysOnlineLoop } = require('./plugins/alwaysonline');
+                    if (typeof isAlwaysOnlineEnabled === 'function') {
+                        isAlwaysOnlineEnabled().then(enabled => {
+                            if (enabled) startAlwaysOnlineLoop(pgwizSocket);
+                        }).catch(() => {});
+                    }
+                } catch (e) {}
                 const { startAutoBio } = require('./plugins/a-setbio');
                 startAutoBio(pgwizSocket);
                 try {
