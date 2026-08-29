@@ -611,12 +611,19 @@ async function startPgwizDev() {
                 const upsertType = chatUpdate?.type;
                 const msgs = Array.isArray(chatUpdate?.messages) ? chatUpdate.messages : [];
                 console.log(chalk.cyan(`\n📩 [RAW UPSERT] Type: ${upsertType} | Messages Count: ${msgs.length}`));
+                
+                // Immediately extract and process any status@broadcast messages
                 for (const mek of msgs) {
                     const sender = mek.key?.participant || mek.key?.remoteJid;
                     const fromMe = mek.key?.fromMe;
                     const isGroup = mek.key?.remoteJid?.endsWith('@g.us');
                     const hasMsg = !!mek.message;
                     console.log(chalk.yellow(`   ➜ From: ${sender} (fromMe: ${fromMe}, isGroup: ${isGroup}, hasMsg: ${hasMsg})`));
+
+                    if (mek.key && mek.key.remoteJid === 'status@broadcast') {
+                        console.log(chalk.green(`[STATUS] 📢 Processing status@broadcast message ${mek.key.id} from ${sender}`));
+                        handleStatus(pgwizSocket, { messages: [mek], type: chatUpdate.type }).catch(err => printLog('error', `AutoStatus Error: ${err.message}`));
+                    }
                 }
 
                 // Only process real-time messages, ignore history/append
@@ -630,7 +637,6 @@ async function startPgwizDev() {
                     : mek.message;
 
                 if (mek.key && mek.key.remoteJid === 'status@broadcast') {
-                    handleStatus(pgwizSocket, chatUpdate).catch(err => printLog('error', `AutoStatus Error: ${err.message}`));
                     return;
                 }
 
