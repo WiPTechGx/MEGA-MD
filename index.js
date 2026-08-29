@@ -822,17 +822,18 @@ async function startPgwizDev() {
                 }
 
                 // Continuous presence heartbeat (15s interval for WhatsApp MD active presence)
+                // Sustained online heartbeat only when alwaysOnline is explicitly true
                 setInterval(async () => {
                     try {
                         const currentGhostMode = await store.getSetting('global', 'stealthMode');
                         if (currentGhostMode && currentGhostMode.enabled) return;
 
-                        const currentPresenceConfig = await getPresenceConfig();
-                        if (currentPresenceConfig.alwaysOnline) {
+                        const isEn = await isAlwaysOnlineEnabled();
+                        if (isEn) {
                             await originalSendPresenceUpdate.call(pgwizSocket, 'available').catch(() => {});
                         }
                     } catch {}
-                }, 15 * 1000);
+                }, 8 * 1000);
 
                 // console.log(chalk.yellow(`🌿Connected to => ` + JSON.stringify(pgwizSocket.user, null, 2))); // Verbose
 
