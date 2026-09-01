@@ -1,192 +1,159 @@
-// Lazy-loaded: const axios = require('axios');
-// Lazy-loaded: const yts = require('yt-search');
-
-const izumi = {
-  baseURL: 'https://izumiiiiiiii.dpdns.org'
-};
-
-const AXIOS_DEFAULTS = {
-  timeout: 60000,
-  headers: {
-    'User-Agent':
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    Accept: 'application/json, text/plain, */*'
-  }
-};
-
-async function tryRequest(getter, attempts = 3) {
-  let lastError;
-  for (let attempt = 1; attempt <= attempts; attempt++) {
-    try {
-      return await getter();
-    } catch (err) {
-      lastError = err;
-      if (attempt < attempts) {
-        await new Promise(r => setTimeout(r, 1000 * attempt));
-      }
-    }
-  }
-  throw lastError;
-}
+const axios = require('axios');
+let yts;
+try { yts = require('yt-search'); } catch { try { yts = require('youtube-yts'); } catch {} }
 
 const API_BASE = 'https://ytsp-api.pgwiz.cloud';
+const AXIOS_TIMEOUT = 120000;
 
-async function getYtspVideoByUrl(youtubeUrl) {
-  const videoId = (youtubeUrl.match(/(?:youtu\.be\/|v=)([a-zA-Z0-9_-]{11})/) || [])[1];
-  let res;
-  if (videoId) {
-    res = await tryRequest(() => axios.get(`${API_BASE}/stream/${videoId}`, AXIOS_DEFAULTS));
-  } else {
-    res = await tryRequest(() => axios.get(`${API_BASE}/get?ytl=${encodeURIComponent(youtubeUrl)}`, AXIOS_DEFAULTS));
-  }
-  const data = res.data;
-  const downloadUrl = (data.proxy_url ? (data.proxy_url.startsWith('http') ? data.proxy_url : `${API_BASE}${data.proxy_url}`) : null) || data.streamUrl || data.url;
-  if (downloadUrl) {
-    return {
-      download: downloadUrl.startsWith('http') ? downloadUrl : `${API_BASE}${downloadUrl}`,
-      title: data.title
-    };
-  }
-  throw new Error('YTSP API returned no stream URL');
-}
-
-async function getIzumiVideoByUrl(youtubeUrl) {
-  const apiUrl = `${izumi.baseURL}/downloader/youtube?url=${encodeURIComponent(
-    youtubeUrl
-  )}&format=720`;
-
-  const res = await tryRequest(() =>
-    axios.get(apiUrl, AXIOS_DEFAULTS)
-  );
-
-  if (res?.data?.result?.download) return res.data.result;
-  throw new Error('Izumi API returned no download');
-}
-
-async function getOkatsuVideoByUrl(youtubeUrl) {
-  const apiUrl = `https://okatsu-rolezapiiz.vercel.app/downloader/ytmp4?url=${encodeURIComponent(
-    youtubeUrl
-  )}`;
-
-  const res = await tryRequest(() =>
-    axios.get(apiUrl, AXIOS_DEFAULTS)
-  );
-
-  if (res?.data?.result?.mp4) {
-    return {
-      download: res.data.result.mp4,
-      title: res.data.result.title
-    };
-  }
-  throw new Error('API returned no mp4');
+function extractYouTubeId(url) {
+  if (!url) return null;
+  const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/|v\/))([a-zA-Z0-9_-]{11})/);
+  return match ? match[1] : null;
 }
 
 module.exports = {
   command: 'video',
-  aliases: ['ytmp4', 'ytvideo', 'ytdl'],
+  aliases: ['ytmp4', 'ytvideo', 'ytdl', 'ytvid'],
   category: 'download',
-  description: 'Download YouTube videos by link or search',
-  usage: '.video <youtube link | search query>',
+  description: 'Download YouTube videos in high quality by search or link',
+  usage: '.video <youtube link | search query> [360p|720p]',
 
   async handler(sock, message, args, context = {}) {
-    const yts = require('yt-search');
-    const axios = require('axios');
     const chatId = context.chatId || message.key.remoteJid;
+    const rawQuery = args.join(' ').trim();
+
+    if (!rawQuery) {
+      return await sock.sendMessage(chatId, {
+        text: '🎥 *YouTube Video Downloader*\n\nUsage:\n• `.video <song/video title>`\n• `.video <youtube link>`\n• `.video <link> 720p`'
+      }, { quoted: message });
+    }
 
     try {
-      const query = args.join(' ').trim();
+      await sock.sendMessage(chatId, { react: { text: '🔍', key: message.key } });
 
-      if (!query) {
-        return await sock.sendMessage(
-          chatId,
-          { text: '🎥 *What video do you want to download?*\nExample:\n.video Alan Walker Faded' },
-          { quoted: message }
-        );
+      let targetQuality = '360p';
+      let cleanQuery = rawQuery;
+
+      if (rawQuery.endsWith('720p') || rawQuery.endsWith('720')) {
+        targetQuality = '720p';
+        cleanQuery = rawQuery.replace(/720p?$/i, '').trim();
+      } else if (rawQuery.endsWith('360p') || rawQuery.endsWith('360')) {
+        targetQuality = '360p';
+        cleanQuery = rawQuery.replace(/360p?$/i, '').trim();
       }
 
-      let videoUrl = '';
+      let videoId = null;
       let videoTitle = '';
       let videoThumbnail = '';
+      let videoDuration = 'N/A';
+      let directUrl = '';
 
-      if (query.startsWith('http://') || query.startsWith('https://')) {
-        videoUrl = query;
+      if (cleanQuery.match(/^https?:\/\//i)) {
+        directUrl = cleanQuery;
+        videoId = extractYouTubeId(cleanQuery);
       } else {
-        const { videos } = await yts(query);
-
-        if (!videos || videos.length === 0) {
-          return await sock.sendMessage(
-            chatId,
-            { text: '❌ No videos found!' },
-            { quoted: message }
-          );
+        if (yts) {
+          try {
+            const res = await yts(cleanQuery);
+            if (res && res.videos && res.videos.length > 0) {
+              const top = res.videos[0];
+              videoId = top.videoId;
+              videoTitle = top.title;
+              videoThumbnail = top.thumbnail;
+              videoDuration = top.timestamp || top.duration?.toString();
+              directUrl = top.url;
+            }
+          } catch {}
         }
-
-        const vid = videos[0];
-        videoUrl = vid.url;
-        videoTitle = vid.title;
-        videoThumbnail = vid.thumbnail;
       }
 
-      try {
-        const ytId =
-          (videoUrl.match(/(?:youtu\.be\/|v=)([a-zA-Z0-9_-]{11})/) || [])[1];
-        const thumb =
-          videoThumbnail ||
-          (ytId ? `https://i.ytimg.com/vi/${ytId}/sddefault.jpg` : null);
-
-        if (thumb) {
-          await sock.sendMessage(
-            chatId,
-            {
-              image: { url: thumb },
-              caption: `🎬 *${videoTitle || query}*\n⬇️ Downloading...`
-            },
-            { quoted: message }
-          );
-        }
-      } catch (e) {
-        console.error('[VIDEO] Thumbnail error:', e?.message || e);
+      if (!videoId && !directUrl) {
+        return await sock.sendMessage(chatId, {
+          text: '❌ *No video found!* Please check your search term or link.'
+        }, { quoted: message });
       }
 
-      const validYT = videoUrl.match(
-        /(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|shorts\/|embed\/))([a-zA-Z0-9_-]{11})/
-      );
-      if (!validYT) {
-        return await sock.sendMessage(chatId, { text: '❌ This is not a valid YouTube link!' }, { quoted: message });
-      }
-
-      let videoData;
-      try {
-        videoData = await getYtspVideoByUrl(videoUrl);
-      } catch (e1) {
+      // Fetch video stream from YTSP
+      let streamMeta = null;
+      if (videoId) {
         try {
-          videoData = await getIzumiVideoByUrl(videoUrl);
-        } catch {
-          videoData = await getOkatsuVideoByUrl(videoUrl);
-        }
+          const res = await axios.get(`${API_BASE}/stream/${videoId}`, {
+            params: { quality: targetQuality },
+            timeout: 20000,
+            headers: { 'User-Agent': 'Mozilla/5.0' }
+          });
+          if (res.data) streamMeta = res.data;
+        } catch {}
       }
 
-      await sock.sendMessage(
-        chatId,
-        {
-          video: { url: videoData.download },
-          mimetype: 'video/mp4',
-          fileName: `${videoData.title || videoTitle || 'video'}.mp4`,
-          caption:
-            `🎬 *${videoData.title || videoTitle || 'Video'}*\n\n` +
-            `> *_Downloaded by MEGA-AI_*`
-        },
-        { quoted: message }
-      );
+      if (!streamMeta && directUrl) {
+        try {
+          const res = await axios.get(`${API_BASE}/get`, {
+            params: { ytl: directUrl, quality: targetQuality },
+            timeout: 20000,
+            headers: { 'User-Agent': 'Mozilla/5.0' }
+          });
+          if (res.data) streamMeta = res.data;
+        } catch {}
+      }
+
+      if (!streamMeta) {
+        throw new Error('Could not extract video stream from media server');
+      }
+
+      const finalTitle = streamMeta.title || videoTitle || 'Video';
+      const finalThumbnail = streamMeta.thumbnail || videoThumbnail || (videoId ? `https://img.youtube.com/vi/${videoId}/mqdefault.jpg` : '');
+      const finalDuration = streamMeta.duration || videoDuration;
+      let proxyUrl = streamMeta.proxy_url || streamMeta.streamUrl || streamMeta.url;
+
+      if (!proxyUrl) {
+        throw new Error('No download stream available');
+      }
+      if (!proxyUrl.startsWith('http')) proxyUrl = `${API_BASE}${proxyUrl}`;
+
+      // Notify downloading
+      await sock.sendMessage(chatId, {
+        text: `🎬 *${finalTitle}*\n⏳ Downloading video (${targetQuality})...`,
+        contextInfo: {
+          externalAdReply: {
+            title: finalTitle,
+            body: `Duration: ${finalDuration} • Quality: ${targetQuality}`,
+            thumbnailUrl: finalThumbnail,
+            sourceUrl: directUrl || `https://youtube.com/watch?v=${videoId}`,
+            mediaType: 1,
+            renderLargerThumbnail: true
+          }
+        }
+      }, { quoted: message });
+
+      await sock.sendMessage(chatId, { react: { text: '⬇️', key: message.key } });
+
+      const videoBuffer = await axios.get(proxyUrl, {
+        responseType: 'arraybuffer',
+        timeout: AXIOS_TIMEOUT,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+          'Referer': API_BASE
+        }
+      });
+
+      await sock.sendMessage(chatId, { react: { text: '⬆️', key: message.key } });
+
+      // Send Video
+      await sock.sendMessage(chatId, {
+        video: videoBuffer.data,
+        mimetype: 'video/mp4',
+        fileName: `${finalTitle}.mp4`,
+        caption: `🎬 *${finalTitle}*\n⏱️ *Duration:* ${finalDuration}\n🎥 *Quality:* ${targetQuality}\n\n> *Downloaded via MEGA-MD*`
+      }, { quoted: message });
+
+      await sock.sendMessage(chatId, { react: { text: '✅', key: message.key } });
 
     } catch (error) {
-      console.error('[VIDEO] Command Error:', error);
-      await sock.sendMessage(
-        chatId,
-        { text: `❌ Download failed!\nReason: ${error?.message || 'Unknown error'}` },
-        { quoted: message }
-      );
+      console.error('Video download error:', error);
+      await sock.sendMessage(chatId, {
+        text: `❌ *Download failed!*\n\nReason: ${error.message || 'Service unavailable'}\n\nPlease try again later.`
+      }, { quoted: message });
     }
   }
 };
-         

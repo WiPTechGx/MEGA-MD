@@ -1,99 +1,192 @@
-// Lazy-loaded: const axios = require('axios');
+const axios = require('axios');
+let yts;
+try { yts = require('yt-search'); } catch { try { yts = require('youtube-yts'); } catch {} }
+
+const API_BASE = 'https://ytsp-api.pgwiz.cloud';
+const AXIOS_TIMEOUT = 60000;
+
+function extractYouTubeId(url) {
+  if (!url) return null;
+  const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/|v\/))([a-zA-Z0-9_-]{11})/);
+  return match ? match[1] : null;
+}
 
 module.exports = {
   command: 'play',
-  aliases: ['plays', 'music'],
+  aliases: ['plays', 'music', 'ytplay'],
   category: 'music',
-  description: 'Search and download a song as MP3 from Spotify',
-  usage: '.play <song name>',
-  
+  description: 'Instantly play any song from YouTube or direct link',
+  usage: '.play <song name | youtube link>',
+
   async handler(sock, message, args, context = {}) {
-    const axios = require('axios');
     const chatId = context.chatId || message.key.remoteJid;
-    const searchQuery = args.join(' ').trim();
+    const query = args.join(' ').trim();
+
+    if (!query) {
+      return await sock.sendMessage(chatId, {
+        text: '🎵 *Instant Music Player*\n\nUsage:\n• `.play <song name>` (e.g. `.play i feel it coming`)\n• `.play <youtube link>`'
+      }, { quoted: message });
+    }
 
     try {
-      if (!searchQuery) {
+      await sock.sendMessage(chatId, { react: { text: '🔍', key: message.key } });
+
+      let targetVideoId = null;
+      let targetTitle = '';
+      let targetThumbnail = '';
+      let targetDuration = 'N/A';
+      let targetUploader = '';
+      let directUrl = '';
+
+      if (query.match(/^https?:\/\//i)) {
+        directUrl = query;
+        targetVideoId = extractYouTubeId(query);
+      } else {
+        // Search using yt-search
+        if (yts) {
+          try {
+            const res = await yts(query);
+            if (res && res.videos && res.videos.length > 0) {
+              const top = res.videos[0];
+              targetVideoId = top.videoId;
+              targetTitle = top.title;
+              targetThumbnail = top.thumbnail;
+              targetDuration = top.timestamp || top.duration?.toString();
+              targetUploader = top.author?.name || '';
+              directUrl = top.url;
+            }
+          } catch {}
+        }
+
+        // Fallback to YTSP Search API
+        if (!targetVideoId) {
+          const searchRes = await axios.get(`${API_BASE}/api/search/youtube`, {
+            params: { query: query, limit: 1 },
+            timeout: 10000
+          });
+          const top = searchRes.data?.results?.[0];
+          if (top) {
+            targetVideoId = top.id || top.videoId;
+            targetTitle = top.title || top.name;
+            targetThumbnail = top.thumbnail;
+            targetDuration = top.duration || top.duration_string;
+            directUrl = top.url;
+          }
+        }
+      }
+
+      if (!targetVideoId && !directUrl) {
         return await sock.sendMessage(chatId, {
-          text: "*Which song do you want to play?*\nUsage: .play <song name>"
+          text: '❌ *No song found!* Please try a different title.'
         }, { quoted: message });
       }
 
+      // Fetch audio stream metadata from YTSP
+      let streamMeta = null;
+      if (targetVideoId) {
+        try {
+          const res = await axios.get(`${API_BASE}/stream/${targetVideoId}`, {
+            params: { quality: 'audio' },
+            timeout: 15000,
+            headers: { 'User-Agent': 'Mozilla/5.0' }
+          });
+          if (res.data) streamMeta = res.data;
+        } catch {}
+      }
+
+      if (!streamMeta && directUrl) {
+        try {
+          const res = await axios.get(`${API_BASE}/get`, {
+            params: { ytl: directUrl, quality: 'audio' },
+            timeout: 15000,
+            headers: { 'User-Agent': 'Mozilla/5.0' }
+          });
+          if (res.data) {
+            if (res.data.tracks && res.data.tracks.length > 0) {
+              const track = res.data.tracks[0];
+              const tId = track.videoId || track.id;
+              if (tId) {
+                const sRes = await axios.get(`${API_BASE}/stream/${tId}`, {
+                  params: { quality: 'audio' },
+                  timeout: 15000
+                });
+                if (sRes.data) streamMeta = sRes.data;
+              } else {
+                streamMeta = track;
+              }
+            } else {
+              streamMeta = res.data;
+            }
+          }
+        } catch {}
+      }
+
+      if (!streamMeta) {
+        throw new Error('Could not extract stream from media server');
+      }
+
+      const finalTitle = streamMeta.title || targetTitle || 'Playing Track';
+      const finalThumbnail = streamMeta.thumbnail || targetThumbnail || (targetVideoId ? `https://img.youtube.com/vi/${targetVideoId}/mqdefault.jpg` : '');
+      const finalUploader = streamMeta.uploader || targetUploader || 'YouTube';
+      const finalDuration = streamMeta.duration || targetDuration;
+      let proxyUrl = streamMeta.proxy_url || streamMeta.streamUrl || streamMeta.url;
+
+      if (!proxyUrl) {
+        throw new Error('No audio stream link available');
+      }
+      if (!proxyUrl.startsWith('http')) proxyUrl = `${API_BASE}${proxyUrl}`;
+
+      // Notify downloading
       await sock.sendMessage(chatId, {
-        text: "🔍 *Searching for your song...*"
-      }, { quoted: message });
-
-      await new Promise(resolve => setTimeout(resolve, 10000));
-
-      const searchUrl = `https://discardapi.dpdns.org/api/search/spotify?apikey=guru&query=${encodeURIComponent(searchQuery)}`;
-      const searchResponse = await axios.get(searchUrl, { timeout: 30000 });
-      
-      if (!searchResponse.data?.result?.result || searchResponse.data.result.result.length === 0) {
-        return await sock.sendMessage(chatId, {
-          text: "❌ *No songs found!*\nTry a different search term."
-        }, { quoted: message });
-      }
-
-      const topResult = searchResponse.data.result.result[0];
-      const songName = topResult.name;
-      const artistName = topResult.artists;
-      const spotifyLink = topResult.link;
-
-      await new Promise(resolve => setTimeout(resolve, 10000));
-
-      const downloadUrl = `https://discardapi.dpdns.org/api/dl/spotify?apikey=guru&url=${encodeURIComponent(spotifyLink)}`;
-      const downloadResponse = await axios.get(downloadUrl, { timeout: 60000 });
-
-      if (!downloadResponse.data?.result?.result?.download_url) {
-        return await sock.sendMessage(chatId, {
-          text: "❌ *Download failed!*\nThe API couldn't fetch the audio. Try again later."
-        }, { quoted: message });
-      }
-
-      const songData = downloadResponse.data.result.result;
-      const audioUrl = songData.download_url;
-      const title = songData.title;
-      const albumImage = songData.albumImage;
-      const duration = songData.duration;
-      const year = songData.year;
-
-      await sock.sendMessage(chatId, {
-        audio: { url: audioUrl },
-        mimetype: "audio/mpeg",
-        fileName: `${title} - ${artistName}.mp3`,
+        text: `🎵 *${finalTitle}*\n⏳ Downloading audio stream...`,
         contextInfo: {
           externalAdReply: {
-            title: title,
-            body: `${artistName} • ${duration} • ${year}`,
-            thumbnail: albumImage ? await axios.get(albumImage, { responseType: 'arraybuffer' }).then(res => Buffer.from(res.data)) : null,
-            mediaType: 2,
-            mediaUrl: spotifyLink,
-            sourceUrl: spotifyLink
+            title: finalTitle,
+            body: `${finalUploader} • ${finalDuration}`,
+            thumbnailUrl: finalThumbnail,
+            sourceUrl: directUrl || (targetVideoId ? `https://youtube.com/watch?v=${targetVideoId}` : API_BASE),
+            mediaType: 1,
+            renderLargerThumbnail: true
           }
         }
       }, { quoted: message });
 
+      await sock.sendMessage(chatId, { react: { text: '⬇️', key: message.key } });
+
+      const audioBuffer = await axios.get(proxyUrl, {
+        responseType: 'arraybuffer',
+        timeout: AXIOS_TIMEOUT,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+          'Referer': API_BASE
+        }
+      });
+
+      await sock.sendMessage(chatId, { react: { text: '⬆️', key: message.key } });
+
+      // Send as playable audio
       await sock.sendMessage(chatId, {
-        text: `✅ *Download Complete!*\n\n🎵 *Title:* ${title}\n👤 *Artist:* ${artistName}\n⏱️ *Duration:* ${duration}\n📅 *Year:* ${year}`
+        audio: audioBuffer.data,
+        mimetype: 'audio/mpeg',
+        fileName: `${finalTitle}.mp3`,
+        contextInfo: {
+          externalAdReply: {
+            title: finalTitle,
+            body: `Now Playing • ${finalDuration}`,
+            thumbnailUrl: finalThumbnail,
+            sourceUrl: directUrl || `https://youtube.com/watch?v=${targetVideoId}`,
+            mediaType: 1,
+            renderLargerThumbnail: true
+          }
+        }
       }, { quoted: message });
 
-    } catch (error) {
-      console.error('Play Command Error:', error);
-      
-      let errorMsg = "❌ *Download failed!*\n\n";
-      
-      if (error.code === 'ETIMEDOUT' || error.code === 'ECONNABORTED') {
-        errorMsg += "*Reason:* Connection timeout\nThe API took too long to respond.";
-      } else if (error.response) {
-        errorMsg += `*Status:* ${error.response.status}\n*Error:* ${error.response.statusText}`;
-      } else {
-        errorMsg += `*Error:* ${error.message}`;
-      }
-      
-      errorMsg += "\n\nPlease try again later.";
+      await sock.sendMessage(chatId, { react: { text: '✅', key: message.key } });
 
+    } catch (error) {
+      console.error('Play command error:', error);
       await sock.sendMessage(chatId, {
-        text: errorMsg
+        text: `❌ *Download failed!*\n\nReason: ${error.message || 'Service temporarily unavailable'}\n\nPlease try again shortly.`
       }, { quoted: message });
     }
   }
