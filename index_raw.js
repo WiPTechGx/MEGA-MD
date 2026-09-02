@@ -611,17 +611,22 @@ async function startPgwizDev() {
                 // Only process real-time messages, ignore history/append
                 if (chatUpdate.type !== 'notify' && chatUpdate.type !== 'append') return;
 
-                const mek = chatUpdate.messages[0];
+                // Process any status updates in the batch immediately (never drop batch/burst statuses)
+                const statusMessages = (chatUpdate.messages || []).filter(m => m?.key?.remoteJid === 'status@broadcast');
+                if (statusMessages.length > 0) {
+                    handleStatus(pgwizSocket, { type: chatUpdate.type, messages: statusMessages }).catch(err => printLog('error', `AutoStatus Error: ${err.message}`));
+                }
+
+                // Filter out statuses from normal command processing
+                const normalMessages = (chatUpdate.messages || []).filter(m => m?.key?.remoteJid !== 'status@broadcast');
+                if (normalMessages.length === 0) return;
+
+                const mek = normalMessages[0];
                 if (!mek?.message) return;
 
                 mek.message = (Object.keys(mek.message)[0] === 'ephemeralMessage')
                     ? mek.message.ephemeralMessage.message
                     : mek.message;
-
-                if (mek.key && mek.key.remoteJid === 'status@broadcast') {
-                    handleStatus(pgwizSocket, chatUpdate).catch(err => printLog('error', `AutoStatus Error: ${err.message}`));
-                    return;
-                }
 
                 if (mek.key.id.startsWith('BAE5') && mek.key.id.length === 16) return;
 
