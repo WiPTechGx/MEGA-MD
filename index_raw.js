@@ -826,51 +826,52 @@ async function startPgwizDev() {
                     } catch {}
                 }, 15 * 1000);
 
-                // console.log(chalk.yellow(`🌿Connected to => ` + JSON.stringify(pgwizSocket.user, null, 2))); // Verbose
-
-                try {
-                    const botNumber = pgwizSocket.user.id.split(':')[0] + '@s.whatsapp.net';
-                    const ghostStatus = (ghostMode && ghostMode.enabled) ? '\n👻 Stealth Mode: ACTIVE' : '';
-
-                    await pgwizSocket.sendMessage(botNumber, {
-                        text: `🤖 ${settings.botName || 'PGWIZ-MD'} Connected Successfully!\n\n⏰ Time: ${new Date().toLocaleString()}\n✅ Status: Online and Ready!${ghostStatus}\n\n✅Make sure to join below channel`,
-                        contextInfo: {
-                            forwardingScore: 1,
-                            isForwarded: true,
-                            forwardedNewsletterMessageInfo: {
-                                newsletterJid: '120363179639202475@newsletter',
-                                newsletterName: settings.newsletterName || settings.botName || 'PGWIZ-MD',
-                                serverMessageId: -1
-                            }
-                        }
-                    });
-
-                    // --- Startup debug: send quick health-check to primary owner ---
+                const sendStartupMsg = process.env.STARTUP_MESSAGE !== 'false' && process.env.SEND_STARTUP_MESSAGE !== 'false';
+                if (sendStartupMsg && !global.hasSentStartupNotification) {
+                    global.hasSentStartupNotification = true;
                     try {
-                        if (Array.isArray(owner) && owner.length) {
-                            const primary = owner[0];
-                            const ownerJid = primary.includes('@') ? primary : `${primary}@s.whatsapp.net`;
+                        const botNumber = pgwizSocket.user.id.split(':')[0] + '@s.whatsapp.net';
+                        const ghostStatus = (ghostMode && ghostMode.enabled) ? '\n👻 Stealth Mode: ACTIVE' : '';
 
-                            // keep an in-memory debug check pending state (expires in 10 minutes)
-                            global.startupDebug = {
-                                pending: true,
-                                ownerJids: [ownerJid],
-                                startedAt: Date.now(),
-                                expiresAt: Date.now() + 10 * 60 * 1000
-                            };
+                        await pgwizSocket.sendMessage(botNumber, {
+                            text: `🤖 ${settings.botName || 'PGWIZ-MD'} Connected Successfully!\n\n⏰ Time: ${new Date().toLocaleString()}\n✅ Status: Online and Ready!${ghostStatus}\n\n✅Make sure to join below channel`,
+                            contextInfo: {
+                                forwardingScore: 1,
+                                isForwarded: true,
+                                forwardedNewsletterMessageInfo: {
+                                    newsletterJid: '120363179639202475@newsletter',
+                                    newsletterName: settings.newsletterName || settings.botName || 'PGWIZ-MD',
+                                    serverMessageId: -1
+                                }
+                            }
+                        });
 
-                            await pgwizSocket.sendMessage(ownerJid, {
-                                text: '🤖 Startup check — reply to this message to confirm bot status.\n\nReply with `.menu` to receive the first menu (debug only).',
-                            });
+                        // --- Startup debug: send quick health-check to primary owner once per boot ---
+                        try {
+                            if (Array.isArray(owner) && owner.length) {
+                                const primary = owner[0];
+                                const ownerJid = primary.includes('@') ? primary : `${primary}@s.whatsapp.net`;
 
-                            printLog('info', `Startup debug message sent to ${ownerJid.split('@')[0]}`);
+                                global.startupDebug = {
+                                    pending: true,
+                                    ownerJids: [ownerJid],
+                                    startedAt: Date.now(),
+                                    expiresAt: Date.now() + 10 * 60 * 1000
+                                };
+
+                                await pgwizSocket.sendMessage(ownerJid, {
+                                    text: '🤖 Startup check — reply to this message to confirm bot status.\n\nReply with `.menu` to receive the first menu (debug only).',
+                                });
+
+                                printLog('info', `Startup debug message sent to ${ownerJid.split('@')[0]}`);
+                            }
+                        } catch (e) {
+                            printLog('error', `Startup debug send failed: ${e.message}`);
                         }
-                    } catch (e) {
-                        printLog('error', `Startup debug send failed: ${e.message}`);
-                    }
 
-                } catch (error) {
-                    printLog('error', `Failed to send connection message: ${error.message}`);
+                    } catch (error) {
+                        printLog('error', `Failed to send connection message: ${error.message}`);
+                    }
                 }
 
 
