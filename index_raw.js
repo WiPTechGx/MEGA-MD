@@ -608,17 +608,6 @@ async function startPgwizDev() {
 
         pgwizSocket.ev.on('messages.upsert', async (chatUpdate) => {
             try {
-                const upsertType = chatUpdate?.type;
-                const msgs = Array.isArray(chatUpdate?.messages) ? chatUpdate.messages : [];
-                console.log(chalk.cyan(`\n📩 [RAW UPSERT] Type: ${upsertType} | Messages Count: ${msgs.length}`));
-                for (const mek of msgs) {
-                    const sender = mek.key?.participant || mek.key?.remoteJid;
-                    const fromMe = mek.key?.fromMe;
-                    const isGroup = mek.key?.remoteJid?.endsWith('@g.us');
-                    const hasMsg = !!mek.message;
-                    console.log(chalk.yellow(`   ➜ From: ${sender} (fromMe: ${fromMe}, isGroup: ${isGroup}, hasMsg: ${hasMsg})`));
-                }
-
                 // Only process real-time messages, ignore history/append
                 if (chatUpdate.type !== 'notify' && chatUpdate.type !== 'append') return;
 
@@ -813,18 +802,21 @@ async function startPgwizDev() {
                     } catch (error) {}
                 }
 
-                // Continuous presence heartbeat (15s interval for WhatsApp MD active presence)
-                setInterval(async () => {
+                // Single non-stacking presence heartbeat (60s interval to prevent WebSocket congestion)
+                if (global.presenceHeartbeatInterval) {
+                    clearInterval(global.presenceHeartbeatInterval);
+                }
+                global.presenceHeartbeatInterval = setInterval(async () => {
                     try {
                         const currentGhostMode = await store.getSetting('global', 'stealthMode');
                         if (currentGhostMode && currentGhostMode.enabled) return;
 
                         const currentPresenceConfig = await getPresenceConfig();
-                        if (currentPresenceConfig.alwaysOnline) {
+                        if (currentPresenceConfig && currentPresenceConfig.alwaysOnline) {
                             await originalSendPresenceUpdate.call(pgwizSocket, 'available').catch(() => {});
                         }
                     } catch {}
-                }, 15 * 1000);
+                }, 60 * 1000);
 
                 const sendStartupMsg = process.env.STARTUP_MESSAGE !== 'false' && process.env.SEND_STARTUP_MESSAGE !== 'false';
                 if (sendStartupMsg && !global.hasSentStartupNotification) {
