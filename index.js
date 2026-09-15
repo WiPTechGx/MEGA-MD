@@ -1,3 +1,10 @@
+try {
+    const dns = require('dns');
+    if (dns && typeof dns.setDefaultResultOrder === 'function') {
+        dns.setDefaultResultOrder('ipv4first');
+    }
+} catch (_) {}
+
 // Zero-dependency environment loader with safe dotenv fallback (compatible with all panels & environments)
 (function loadEnvironment() {
     try {
