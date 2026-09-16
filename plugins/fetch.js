@@ -1,15 +1,14 @@
-// Lazy-loaded: const axios = require('axios');
-const { fromBuffer } = require('file-type')
+const axios = require('axios');
+const { fromBuffer } = require('file-type');
 
 module.exports = {
   command: 'fetch',
-  aliases: ['get', 'download'],
+  aliases: ['get', 'fetchfile'],
   category: 'tools',
   description: 'Download a file directly from a URL',
   usage: '.fetch <url>',
 
   async handler(sock, message, args, context = {}) {
-    const axios = require('axios');
     const chatId = context.chatId || message.key.remoteJid;
     const url = args[0];
 
