@@ -217,10 +217,10 @@ async function forceMiniSticker(inputBuffer, isVideo, cropSquare) {
 
 module.exports = {
   command: 'igs',
-  aliases: ['igsticker', 'instasticker'],
+  aliases: ['igsticker', 'instasticker', 'igsc', 'igstickercrop', 'instacrop'],
   category: 'stickers',
-  description: 'Convert Instagram post/reel to sticker',
-  usage: '.igs <instagram URL>',
+  description: 'Convert Instagram post/reel to sticker (supports cropped mode via .igsc or --crop)',
+  usage: '.igs <instagram URL> [--crop] or .igsc <instagram URL>',
   
   async handler(sock, message, args, context) {
     const axios = require('axios');
@@ -228,6 +228,8 @@ module.exports = {
     
     try {
       const text = message.message?.conversation || message.message?.extendedTextMessage?.text || '';
+      const bodyLower = (message.body || text || '').toLowerCase();
+      const isCropped = bodyLower.includes('igsc') || bodyLower.includes('instacrop') || bodyLower.includes('igstickercrop') || (args && args.some(a => a === '--crop' || a === '-c'));
       const urlMatch = text.match(/https?:\/\/\S+/);
       
       if (!urlMatch) {
@@ -283,12 +285,14 @@ module.exports = {
           }
           seenHashes.add(hash);
 
-          let stickerBuffer = await convertBufferToStickerWebp(buffer, isVideo, false);
+          let stickerBuffer = isCropped
+            ? await stickercropFromBuffer(buffer, isVideo)
+            : await convertBufferToStickerWebp(buffer, isVideo, false);
 
           let finalSticker = stickerBuffer;
           if (finalSticker.length > 900 * 1024) {
             try {
-              const fallback = await forceMiniSticker(buffer, isVideo, false);
+              const fallback = await forceMiniSticker(buffer, isVideo, isCropped);
               if (fallback && fallback.length <= 900 * 1024) {
                 finalSticker = fallback;
               }

@@ -16,7 +16,7 @@ async function downloadMediaMessage(message, mediaType) {
 
 module.exports = {
   command: 'tag',
-  aliases: ['tagall', 'hidetag'],
+  aliases: ['tagallmembers', 'mentionall', 'groupmention'],
   category: 'admin',
   description: 'Tag all group members',
   usage: '.tag [message] or reply to a message',

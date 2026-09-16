@@ -2,7 +2,7 @@
 
 module.exports = {
   command: 'gitpull',
-  aliases: ['refresh', 'pull'],
+  aliases: ['pull', 'gpull'],
   category: 'owner',
   description: 'Reload all plugins (Pull changes from git if available)',
   usage: '.gitpull',

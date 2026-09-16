@@ -6,7 +6,7 @@ const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
 
 module.exports = {
   command: 'sharpen',
-  aliases: ['enhance'],
+  aliases: ['sharp', 'clarity'],
   category: 'tools',
   description: 'Convert an image to sharpen',
   usage: 'Reply to an image with .sharpen',

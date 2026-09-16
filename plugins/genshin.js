@@ -10,7 +10,7 @@ function decodeUnicode(str) {
 
 module.exports = {
   command: 'genshin',
-  aliases: ['gh', 'uid'],
+  aliases: ['genshinimpact', 'gi', 'uid'],
   category: 'stalk',
   description: 'Stalk Genshin Impact UID',
   usage: '.genshin <UID>',
@@ -24,7 +24,9 @@ module.exports = {
         text: '*Please provide a Genshin UID.*\nExample: .genshin 826401293'
       }, { quoted: message });
     }
+
     const uid = args[0];
+
     try {
       const { data } = await axios.get(`https://discardapi.dpdns.org/api/stalk/genshin`, {
         params: { apikey: 'guru', text: uid }
@@ -34,21 +36,24 @@ module.exports = {
         return await sock.sendMessage(chatId, { text: '❌ UID not found or invalid.' }, { quoted: message });
       }
 
-      const result = data.result;
-      const caption = `🎮 *Genshin UID Info*\n\n` +
-                      `👤 Nickname: ${result.nickname || 'N/A'}\n` +
-                      `🆔 UID: ${result.uid || 'N/A'}\n` +
-                      `🏆 Achievements: ${result.achivement || 'N/A'}\n` +
-                      `⚡ Level: ${result.level || 'N/A'}\n` +
-                      `🌌 World Level: ${result.world_level || 'N/A'}\n` +
-                      `🌀 Spiral Abyss: ${decodeUnicode(result.spiral_abyss)}\n` +
-                      `💳 Card ID: ${result.card_id || 'N/A'}`;
+      const res = data.result;
 
-      await sock.sendMessage(chatId, { image: { url: result.image }, caption: caption }, { quoted: message });
+      const profile = `
+🎮 *Genshin Impact Player Info* 🎮
+
+👤 *Nickname:* ${decodeUnicode(res.playerInfo?.nickname)}
+⭐ *Adventure Rank:* ${res.playerInfo?.level || 'N/A'}
+🌍 *World Level:* ${res.playerInfo?.worldLevel || 'N/A'}
+📝 *Signature:* ${decodeUnicode(res.playerInfo?.signature)}
+🏆 *Achievements:* ${res.playerInfo?.finishAchievementNum || 'N/A'}
+🗼 *Spiral Abyss:* Floor ${res.playerInfo?.towerFloorIndex || 'N/A'} - Chamber ${res.playerInfo?.towerLevelIndex || 'N/A'}
+`;
+
+      await sock.sendMessage(chatId, { text: profile }, { quoted: message });
 
     } catch (err) {
-      console.error('Genshin plugin error:', err);
-      await sock.sendMessage(chatId, { text: '❌ Failed to fetch UID info.' }, { quoted: message });
+      console.error('Genshin stalk error:', err);
+      await sock.sendMessage(chatId, { text: '❌ Failed to fetch Genshin UID info.' }, { quoted: message });
     }
   }
 };

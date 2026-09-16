@@ -2,7 +2,7 @@ const store = require('../lib/lightweight_store');
 
 module.exports = {
     command: 'delete',
-    aliases: ['del', 'remove'],
+    aliases: ['del', 'dmsg'],
     category: 'admin',
     description: 'Delete recent messages from group or specific user',
     usage: '.delete <count> [@user] or reply with .delete',

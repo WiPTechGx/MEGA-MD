@@ -7,14 +7,15 @@ const webp = require('node-webpmux');
 const crypto = require('crypto');
 
 module.exports = {
-  command: 'sticker2',
-  aliases: ['s2', 'stik2'],
+  command: 'sticker',
+  aliases: ['s', 'stik', 'sticker2', 's2', 'stik2'],
   category: 'stickers',
-  description: 'Convert image/video to sticker',
-  usage: '.sticker2 (reply to image/video or send with caption)',
+  description: 'Convert image/video to WhatsApp sticker with metadata and compression fallback',
+  usage: '.sticker (reply to image/video or send with caption)',
   
-  async handler(sock, message, args, context) {
-    const { chatId, channelInfo } = context;
+  async handler(sock, message, args, context = {}) {
+    const chatId = context.chatId || message.key.remoteJid;
+    const channelInfo = context.channelInfo || {};
     const messageToQuote = message;
     let targetMessage = message;
 
@@ -30,11 +31,13 @@ module.exports = {
       };
     }
 
-    const mediaMessage = targetMessage.message?.imageMessage || targetMessage.message?.videoMessage || targetMessage.message?.documentMessage;
+    const mediaMessage = targetMessage.message?.imageMessage || 
+                         targetMessage.message?.videoMessage || 
+                         targetMessage.message?.documentMessage;
 
     if (!mediaMessage) {
       await sock.sendMessage(chatId, { 
-        text: 'Please reply to an image/video with .sticker2, or send an image/video with .sticker2 as the caption.',
+        text: 'Please reply to an image/video with .sticker, or send an image/video with .sticker as the caption.',
         ...channelInfo
       }, { quoted: messageToQuote });
       return;
@@ -69,8 +72,8 @@ module.exports = {
                         mediaMessage.seconds > 0;
 
       const ffmpegCommand = isAnimated
-        ? `ffmpeg -i "${tempInput}" -vf "scale=512:512:force_original_aspect_ratio=decrease,fps=15,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=#00000000" -c:v libwebp -preset default -loop 0 -vsync 0 -pix_fmt yuva420p -quality 75 -compression_level 6 "${tempOutput}"`
-        : `ffmpeg -i "${tempInput}" -vf "scale=512:512:force_original_aspect_ratio=decrease,format=rgba,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=#00000000" -c:v libwebp -preset default -loop 0 -vsync 0 -pix_fmt yuva420p -quality 75 -compression_level 6 "${tempOutput}"`;
+        ? `ffmpeg -y -i "${tempInput}" -vf "scale=512:512:force_original_aspect_ratio=decrease,fps=15,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=#00000000" -c:v libwebp -preset default -loop 0 -vsync 0 -pix_fmt yuva420p -quality 75 -compression_level 6 "${tempOutput}"`
+        : `ffmpeg -y -i "${tempInput}" -vf "scale=512:512:force_original_aspect_ratio=decrease,format=rgba,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=#00000000" -c:v libwebp -preset default -loop 0 -vsync 0 -pix_fmt yuva420p -quality 75 -compression_level 6 "${tempOutput}"`;
 
       await new Promise((resolve, reject) => {
         exec(ffmpegCommand, (error) => {
@@ -104,9 +107,12 @@ module.exports = {
       const img = new webp.Image();
       await img.load(webpBuffer);
 
+      const packname = settings.packname || 'PGWIZ AI';
+      const author = settings.author || settings.botOwner || 'pgwiz';
       const json = {
         'sticker-pack-id': crypto.randomBytes(32).toString('hex'),
-        'sticker-pack-name': settings.packname || 'PGWIZ AI',
+        'sticker-pack-name': packname,
+        'sticker-pack-publisher': author,
         'emojis': ['🤖']
       };
 
@@ -130,16 +136,7 @@ module.exports = {
             const smallWebp = fs.readFileSync(tempOutput3);
             const img2 = new webp.Image();
             await img2.load(smallWebp);
-            const json2 = {
-              'sticker-pack-id': crypto.randomBytes(32).toString('hex'),
-              'sticker-pack-name': settings.packname || 'PGWIZ AI',
-              'emojis': ['🤖']
-            };
-            const exifAttr2 = Buffer.from([0x49, 0x49, 0x2A, 0x00, 0x08, 0x00, 0x00, 0x00, 0x01, 0x00, 0x41, 0x57, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00, 0x16, 0x00, 0x00, 0x00]);
-            const jsonBuffer2 = Buffer.from(JSON.stringify(json2), 'utf8');
-            const exif2 = Buffer.concat([exifAttr2, jsonBuffer2]);
-            exif2.writeUIntLE(jsonBuffer2.length, 14, 4);
-            img2.exif = exif2;
+            img2.exif = exif;
             finalBuffer = await img2.save(null);
             try { fs.unlinkSync(tempOutput3); } catch {}
           }
@@ -152,8 +149,8 @@ module.exports = {
       }, { quoted: messageToQuote });
 
       try {
-        fs.unlinkSync(tempInput);
-        fs.unlinkSync(tempOutput);
+        if (fs.existsSync(tempInput)) fs.unlinkSync(tempInput);
+        if (fs.existsSync(tempOutput)) fs.unlinkSync(tempOutput);
       } catch (err) {
         console.error('Error cleaning up temp files:', err);
       }

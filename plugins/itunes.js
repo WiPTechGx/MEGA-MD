@@ -2,7 +2,7 @@
 
 module.exports = {
   command: 'itunes',
-  aliases: ['song', 'music', 'track'],
+  aliases: ['itunessong', 'applemusic', 'trackinfo'],
   category: 'info',
   description: 'Get detailed information about a song from iTunes',
   usage: '.itunes <song name>',

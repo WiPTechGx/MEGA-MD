@@ -2,7 +2,7 @@
 
 module.exports = {
   command: 'shorten',
-  aliases: ['short', 'tinyurl', 'isgd', 'shortlink'],
+  aliases: ['short', 'tinyurl', 'tiny', 'isgd', 'shortlink'],
   category: 'tools',
   description: 'Shorten a long URL into a compact link',
   usage: '.shorten <url>',

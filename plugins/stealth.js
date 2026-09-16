@@ -2,7 +2,7 @@ const store = require('../lib/lightweight_store');
 
 module.exports = {
     command: 'stealth',
-    aliases: ['alwaysonline', 'stealthmode'],
+    aliases: ['stealthmode', 'ghostmode', 'invis', 'invisible'],
     category: 'owner',
     description: 'Toggle online status - bot will not send presence updates if off',
     usage: '.stealth <on|off>',

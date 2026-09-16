@@ -53,7 +53,7 @@ module.exports = {
   command: 'audiofx',
   aliases: [
     'bass','blown','deep','earrape','fast','fat',
-    'nightcore','reverse','robot','slow','chipmunk'
+    'nightcore','areverse','robot','slow','chipmunk'
   ],
   category: 'menu',
   description: 'Apply audio effects to voice notes',
