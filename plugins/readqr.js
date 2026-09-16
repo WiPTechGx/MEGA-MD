@@ -46,32 +46,27 @@ module.exports = {
       fs.writeFileSync(tempFile, buffer);
 
       const form = new FormData();
-      form.append('apikey', 'guru');
-      form.append('image', fs.createReadStream(tempFile));
+      form.append('file', fs.createReadStream(tempFile));
 
       const res = await axios.post(
-        'https://discardapi.dpdns.org/api/tools/readqr',
+        'http://api.qrserver.com/v1/read-qr/',
         form,
-        { headers: form.getHeaders(), timeout: 60000 }
+        { headers: form.getHeaders(), timeout: 20000 }
       );
 
       fs.unlinkSync(tempFile);
 
-      if (!res?.data?.status) throw new Error('Decode failed');
+      const decodedText = res?.data?.[0]?.symbol?.[0]?.data;
+      const errorText = res?.data?.[0]?.symbol?.[0]?.error;
+
+      if (!decodedText || errorText) {
+        throw new Error(errorText || 'No QR code could be read from this image');
+      }
 
       await sock.sendMessage(
         chatId,
         {
-          text:
-`✅ *QR Code Decoded*
-
-📄 *Result:*
-\`\`\`
-${res.data.result}
-\`\`\`
-
-👤 ${res.data.creator}
-`
+          text: `✅ *QR Code Decoded Successfully*\n\n📄 *Content:*\n\`\`\`\n${decodedText}\n\`\`\`\n\n> Powered by MEGA-MD`
         },
         { quoted: message }
       );
@@ -80,7 +75,7 @@ ${res.data.result}
       console.error('QR Reader Error:', err);
       await sock.sendMessage(
         chatId,
-        { text: '❌ Failed to read QR code. Please try a clearer image.' },
+        { text: `❌ Failed to read QR code: ${err.message || 'Please try a clearer image'}` },
         { quoted: message }
       );
     }

@@ -3,7 +3,7 @@ const isOwnerOrSudo = require('../lib/isOwner');
 
 module.exports = {
   command: 'wipe',
-  aliases: ['clean', 'purge'],
+  aliases: ['purge', 'wipemsg', 'cleanmsgs'],
   category: 'admin',
   description: 'Force delete messages (bot/all/prefix)',
   usage: '.wipe [bot | all | prefix] [count]',

@@ -1,25 +1,8 @@
-const settings = require('../settings');
-/*****************************************************************************
- *                                                                           *
- *                     Developed By pgwiz                                *
- *                                                                           *
- *  🌐  GitHub   : https://github.com/pgwiz                         *
- *  ▶️  YouTube  : https://youtube.com/@pgwiz                       *
- *  💬  WhatsApp : https://whatsapp.com/channel/0029Va8cpObHwXbDoZE9VY3K     *
- *                                                                           *
- *    © 2026 pgwiz. All rights reserved.                            *
- *                                                                           *
- *    Description: This file is part of the PGWIZ-MD Project.                 *
- *                 Unauthorized copying or distribution is prohibited.       *
- *                                                                           *
- *****************************************************************************/
-
-
 // Lazy-loaded: const axios = require('axios');
 
 module.exports = {
   command: 'unshorten',
-  aliases: ['expand', 'trace'],
+  aliases: ['expand', 'trace', 'unshort'],
   category: 'tools',
   description: 'See where a short link actually goes',
   usage: '.unshorten <short_url>',
@@ -27,7 +10,16 @@ module.exports = {
   async handler(sock, message, args, context = {}) {
     const axios = require('axios');
     const chatId = context.chatId || message.key.remoteJid;
-    const url = args[0];
+    let url = args[0];
+
+    if (!url) {
+      const quoted = message.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+      const quotedText = quoted?.conversation || quoted?.extendedTextMessage?.text;
+      if (quotedText) {
+        const match = quotedText.match(/https?:\/\/[^\s]+/);
+        if (match) url = match[0];
+      }
+    }
 
     if (!url) {
       return await sock.sendMessage(chatId, { 
@@ -41,7 +33,6 @@ module.exports = {
     }
 
     try {
-
       const res = await axios.get(targetUrl, { 
         maxRedirects: 10,
         timeout: 15000,
@@ -50,14 +41,14 @@ module.exports = {
         }
       });
 
-      const finalUrl = res.request.res.responseUrl || res.config.url || targetUrl;
-      const redirectCount = res.request._redirectable._redirectCount || 0;
+      const finalUrl = res.request?.res?.responseUrl || res.config?.url || targetUrl;
+      const redirectCount = res.request?._redirectable?._redirectCount || 0;
 
       let report = `*🔗 LINK TRACE RESULTS*\n\n`;
       report += `*Original:*\n${url}\n\n`;
       report += `*Destination:*\n${finalUrl}\n\n`;
       report += `*Redirects:* ${redirectCount}\n`;
-      report += `*Status:* ${res.status} ${res.statusText || 'OK'}`;
+      report += `*Status:* ${res.status} ${res.statusText || 'OK'}\n\n> Powered by MEGA-MD`;
 
       await sock.sendMessage(chatId, { text: report }, { quoted: message });
 
@@ -78,18 +69,3 @@ module.exports = {
     }
   }
 };
-
-/*****************************************************************************
- *                                                                           *
- *                     Developed By pgwiz                                *
- *                                                                           *
- *  🌐  GitHub   : https://github.com/pgwiz                         *
- *  ▶️  YouTube  : https://youtube.com/@pgwiz                       *
- *  💬  WhatsApp : https://whatsapp.com/channel/0029Va8cpObHwXbDoZE9VY3K     *
- *                                                                           *
- *    © 2026 pgwiz. All rights reserved.                            *
- *                                                                           *
- *    Description: This file is part of the PGWIZ-MD Project.                 *
- *                 Unauthorized copying or distribution is prohibited.       *
- *                                                                           *
- *****************************************************************************/

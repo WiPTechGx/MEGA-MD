@@ -2,67 +2,82 @@
 
 module.exports = {
   command: 'imagine',
-  aliases: ['aiimage', 'draw', 'genimage'],
+  aliases: ['aiimage', 'draw', 'genimage', 'dalle', 'flux'],
   category: 'ai',
-  description: 'Generate an AI image based on your prompt',
+  description: 'Generate a high-resolution AI image using Pollinations/Flux',
   usage: '.imagine <prompt>',
+
   async handler(sock, message, args, context = {}) {
     const axios = require('axios');
     const chatId = context.chatId || message.key.remoteJid;
     const imagePrompt = args.join(' ').trim();
 
     if (!imagePrompt) {
-      await sock.sendMessage(chatId, {
-        text: 'Please provide a prompt for the image generation.\nExample: .imagine a beautiful sunset over mountains'
+      return await sock.sendMessage(chatId, {
+        text: '🎨 *AI Image Generator*\n\n📌 Please provide a prompt describing the image.\n\n*Usage:* `.imagine a cyberpunk city at night with neon lights, 4k`\n*Aliases:* `.draw`, `.genimage`, `.flux`'
       }, { quoted: message });
-      return;
     }
+
     await sock.sendMessage(chatId, {
-      text: '🎨 Generating your image... Please wait.'
-    }, { quoted: message });
+      react: { text: '🎨', key: message.key }
+    });
 
     try {
-      const enhancedPrompt = enhancePrompt(imagePrompt);
+      const seed = Math.floor(Math.random() * 1000000);
+      const encodedPrompt = encodeURIComponent(imagePrompt);
+      const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&seed=${seed}&nologo=true`;
 
-      const response = await axios.get(`https://shizoapi.onrender.com/api/ai/imagine?apikey=shizo&query=${encodeURIComponent(enhancedPrompt)}`, {
-        responseType: 'arraybuffer'
-      });
+      let imageBuffer = null;
 
-      const imageBuffer = Buffer.from(response.data);
+      try {
+        const response = await axios.get(pollinationsUrl, {
+          responseType: 'arraybuffer',
+          timeout: 40000,
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+          }
+        });
+        if (response.status === 200 && response.data?.length > 1000) {
+          imageBuffer = Buffer.from(response.data);
+        }
+      } catch (pollError) {
+        console.warn('Pollinations primary failed, attempting fallback...', pollError?.message);
+      }
+
+      // Secondary fallback if primary buffer failed
+      if (!imageBuffer) {
+        try {
+          const fallbackUrl = `https://pollinations.ai/p/${encodedPrompt}?width=800&height=800&seed=${seed}`;
+          const response = await axios.get(fallbackUrl, {
+            responseType: 'arraybuffer',
+            timeout: 30000
+          });
+          if (response.status === 200 && response.data?.length > 1000) {
+            imageBuffer = Buffer.from(response.data);
+          }
+        } catch (fErr) {
+          console.error('Fallback image provider error:', fErr?.message);
+        }
+      }
+
+      if (!imageBuffer) {
+        throw new Error('All image generation services are currently busy. Please try again in a few moments.');
+      }
 
       await sock.sendMessage(chatId, {
         image: imageBuffer,
-        caption: `🎨 Generated image for prompt: "${imagePrompt}"`
+        caption: `✨ *Prompt:* ${imagePrompt}\n🎨 *Model:* Flux / Pollinations AI\n> Powered by MEGA-MD`
       }, { quoted: message });
 
-    } catch (error) {
-      console.error('Error in imagine command:', error);
       await sock.sendMessage(chatId, {
-        text: '❌ Failed to generate image. Please try again later.'
+        react: { text: '✅', key: message.key }
+      });
+
+    } catch (error) {
+      console.error('Error in imagine command:', error?.message || error);
+      await sock.sendMessage(chatId, {
+        text: `❌ *Image Generation Error:* ${error?.message || 'Could not generate image'}`
       }, { quoted: message });
     }
   }
 };
-
-// Function to enhance the prompt
-function enhancePrompt(prompt) {
-  const qualityEnhancers = [
-    'high quality',
-    'detailed',
-    'masterpiece',
-    'best quality',
-    'ultra realistic',
-    '4k',
-    'highly detailed',
-    'professional photography',
-    'cinematic lighting',
-    'sharp focus'
-  ];
-
-  const numEnhancers = Math.floor(Math.random() * 2) + 3;
-  const selectedEnhancers = qualityEnhancers
-    .sort(() => Math.random() - 0.5)
-    .slice(0, numEnhancers);
-
-  return `${prompt}, ${selectedEnhancers.join(', ')}`;
-}

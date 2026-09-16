@@ -1,54 +1,63 @@
-const settings = require('../settings');
+const axios = require('axios');
+
 module.exports = {
   command: 'gitclone',
-  aliases: ['githubdl', 'clone'],
-  category: 'owner',
-  description: 'Download a GitHub repository as zip',
-  usage: '.gitclone <url> OR <username> <repo>',
+  aliases: ['githubdl', 'clone', 'gitclone2', 'githubdl2', 'clone2'],
+  category: 'download',
+  description: 'Download a GitHub repository as a ZIP archive',
+  usage: '.gitclone <github-url | username repo>',
 
-  async handler(sock, message, args) {
-    const chatId = message.key.remoteJid;
+  async handler(sock, message, args, context = {}) {
+    const chatId = context.chatId || message.key.remoteJid;
+    const input = args.join(' ').trim();
 
-    if (!args || args.length === 0) {
-      return sock.sendMessage(chatId, {
-        text: '*🌟 Please provide a GitHub URL or username and repository name.*\n\n*Example usage:*\n\n.clone https://github.com/pgwiz/PGWIZ-MD\n\n.clone pgwiz PGWIZ-MD'
-      });
+    if (!input) {
+      return await sock.sendMessage(chatId, {
+        text: '🌟 *GitHub Repository Downloader*\n\nUsage:\n• `.clone https://github.com/pgwiz/PGWIZ-MD`\n• `.clone pgwiz PGWIZ-MD`'
+      }, { quoted: message });
     }
-
-    let url = '';
-    let repoName = '';
-
-    if (args[0].startsWith('http')) {
-      const inputUrl = args[0].replace(/\.git$/, '');
-      const parts = inputUrl.split('/');
-      repoName = parts[parts.length - 1];
-      url = inputUrl;
-      if (!url.endsWith('/')) url += '/';
-      url += 'archive/refs/heads/main.zip';
-    } else if (args.length >= 2) {
-      const username = args[0];
-      const repo = args[1];
-      repoName = repo;
-      url = `https://github.com/${username}/${repo}/archive/refs/heads/main.zip`;
-    } else {
-      return sock.sendMessage(chatId, {
-        text: '*Missing repository info.*\n\n*Example usage:*\n\n.clone https://github.com/pgwiz/PGWIZ-MD\n\n.clone pgwiz PGWIZ-MD'
-      });
-    }
-
-    await sock.sendMessage(chatId, { text: '⏱️ Preparing repository zip...' });
 
     try {
+      await sock.sendMessage(chatId, { react: { text: '📦', key: message.key } });
+
+      let user = '';
+      let repo = '';
+
+      const regex = /(?:https?:\/\/)?(?:www\.)?github\.com\/([^\/]+)\/([^\/\s#?]+)/i;
+      const match = input.match(regex);
+
+      if (match) {
+        user = match[1];
+        repo = match[2].replace(/\.git$/i, '');
+      } else if (args.length >= 2) {
+        user = args[0].trim();
+        repo = args[1].trim().replace(/\.git$/i, '');
+      } else {
+        return await sock.sendMessage(chatId, {
+          text: '❌ Invalid GitHub URL or repository format.'
+        }, { quoted: message });
+      }
+
       await sock.sendMessage(chatId, {
-        document: { url },
-        fileName: repoName + '.zip',
-        mimetype: 'application/zip'
-      });
-    } catch (e) {
-      console.error(e);
+        text: `⏳ Preparing repository archive for *${user}/${repo}*...`
+      }, { quoted: message });
+
+      const zipballUrl = `https://api.github.com/repos/${user}/${repo}/zipball`;
+
       await sock.sendMessage(chatId, {
-        text: '❌ Failed to fetch the repository. Please make sure the repository exists and try again.'
-      });
+        document: { url: zipballUrl },
+        fileName: `${repo}.zip`,
+        mimetype: 'application/zip',
+        caption: `📦 *${user}/${repo}*\n> Downloaded via MEGA-MD`
+      }, { quoted: message });
+
+      await sock.sendMessage(chatId, { react: { text: '✅', key: message.key } });
+
+    } catch (err) {
+      console.error('Gitclone error:', err.message);
+      await sock.sendMessage(chatId, {
+        text: `❌ Failed to download repository: ${err.message}`
+      }, { quoted: message });
     }
   }
 };

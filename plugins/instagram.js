@@ -3,7 +3,7 @@ const settings = require('../settings');
 
 module.exports = {
   command: 'instagram',
-  aliases: ['ig', 'insta', 'igdl', 'instadl'],
+  aliases: ['ig', 'insta', 'igdl', 'instadl', 'reels', 'reel'],
   category: 'download',
   description: 'Download Instagram posts, reels, stories, or carousel albums',
   usage: '.instagram <Instagram URL>',
@@ -13,19 +13,28 @@ module.exports = {
     const chatId = context.chatId || message.key.remoteJid;
     const channelInfo = context.channelInfo || {};
 
-    const text = args.join(' ').trim();
+    let text = args.join(' ').trim();
+    if (!text) {
+      const quoted = message.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+      const quotedText = quoted?.conversation || quoted?.extendedTextMessage?.text;
+      if (quotedText) {
+        const match = quotedText.match(/https?:\/\/[^\s]+/);
+        if (match) text = match[0];
+      }
+    }
+
     if (!text) {
       return await sock.sendMessage(
         chatId,
         {
-          text: '❌ *Please provide an Instagram link!*\n\n*Usage:* `.instagram https://www.instagram.com/p/...`',
+          text: '📸 *Instagram Downloader*\n\n📌 Please provide an Instagram post or reel link.\n\n*Usage:* `.instagram https://www.instagram.com/reel/...`\n*Aliases:* `.ig`, `.insta`, `.reels`',
           ...channelInfo
         },
         { quoted: message }
       );
     }
 
-    const igRegex = /(?:https?:\/\/)?(?:www\.)?instagram\.com\/(?:p|reel|tv|stories)\/[A-Za-z0-9_-]+/;
+    const igRegex = /(?:https?:\/\/)?(?:www\.)?instagram\.com\/(?:p|reel|tv|stories)\/[A-Za-z0-9_-]+/i;
     if (!igRegex.test(text)) {
       return await sock.sendMessage(
         chatId,
@@ -39,15 +48,15 @@ module.exports = {
 
     await sock.sendMessage(
       chatId,
-      { text: '⏳ *Fetching Instagram media...*', ...channelInfo },
-      { quoted: message }
+      { react: { text: '⏳', key: message.key } }
     );
 
+    let mediaList = [];
+
+    // Engine 1: Gifted Tech Instagram API
     try {
       const apiUrl = `https://api.giftedtech.web.id/api/download/instagram?apikey=gifted&url=${encodeURIComponent(text)}`;
-      const { data } = await axios.get(apiUrl, { timeout: 30000 });
-
-      let mediaList = [];
+      const { data } = await axios.get(apiUrl, { timeout: 25000 });
 
       if (data && data.status === 200 && data.result) {
         if (Array.isArray(data.result)) {
@@ -58,15 +67,28 @@ module.exports = {
           mediaList = [data.result];
         }
       }
+    } catch (_) {}
 
-      if (!mediaList || mediaList.length === 0) {
-        return await sock.sendMessage(
-          chatId,
-          { text: '❌ No downloadable media found.', ...channelInfo },
-          { quoted: message }
-        );
-      }
+    // Engine 2: GuruAPI Instagram API
+    if (!mediaList || mediaList.length === 0) {
+      try {
+        const apiUrl = `https://api.guruapi.tech/insta/v1/igdl?url=${encodeURIComponent(text)}`;
+        const { data } = await axios.get(apiUrl, { timeout: 25000 });
+        if (data?.media && Array.isArray(data.media)) {
+          mediaList = data.media.map(m => ({ url: m.url, type: m.type || 'video' }));
+        }
+      } catch (_) {}
+    }
 
+    if (!mediaList || mediaList.length === 0) {
+      return await sock.sendMessage(
+        chatId,
+        { text: '❌ No downloadable media found. The account or post may be private.', ...channelInfo },
+        { quoted: message }
+      );
+    }
+
+    try {
       for (let i = 0; i < mediaList.length; i++) {
         const media = mediaList[i];
         const url = media.url || media;
@@ -77,7 +99,7 @@ module.exports = {
           text.includes('/reel/') ||
           text.includes('/tv/');
 
-        const caption = `📥 *Downloaded by ${settings.botName || "PGWIZ-MD"}*`;
+        const caption = `📸 *Instagram Downloader*\n📥 *Downloaded by ${settings.botName || 'PGWIZ-MD'}*`;
 
         if (isVideo) {
           await sock.sendMessage(
@@ -103,15 +125,20 @@ module.exports = {
         }
 
         if (i < mediaList.length - 1) {
-          await new Promise(r => setTimeout(r, 1000));
+          await new Promise(r => setTimeout(r, 800));
         }
       }
 
-    } catch (err) {
-      console.error('Instagram plugin error:', err);
       await sock.sendMessage(
         chatId,
-        { text: '❌ Failed to download Instagram media. Please try again later.', ...channelInfo },
+        { react: { text: '✅', key: message.key } }
+      );
+
+    } catch (err) {
+      console.error('Instagram download error:', err);
+      await sock.sendMessage(
+        chatId,
+        { text: '❌ Failed to send Instagram media. Please try again later.', ...channelInfo },
         { quoted: message }
       );
     }
