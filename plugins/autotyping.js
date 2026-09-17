@@ -1,9 +1,3 @@
-async function isAlwaysOnline() {
-    try {
-        const config = await store.getSetting('global', 'presenceConfig');
-        return !!(config && config.alwaysOnline);
-    } catch { return false; }
-}
 const fs = require('fs');
 const path = require('path');
 const store = require('../lib/lightweight_store');
@@ -13,7 +7,6 @@ const POSTGRES_URL = process.env.POSTGRES_URL;
 const MYSQL_URL = process.env.MYSQL_URL;
 const SQLITE_URL = process.env.DB_URL;
 const HAS_DB = !!(MONGO_URL || POSTGRES_URL || MYSQL_URL || SQLITE_URL);
-
 
 const configPath = path.join(__dirname, '..', 'data', 'autotyping.json');
 
@@ -70,9 +63,6 @@ async function handleAutotypingForMessage(sock, chatId, userMessage) {
     if (enabled) {
         try {
             await sock.presenceSubscribe(chatId);
-            if (await isAlwaysOnline()) { await sock.sendPresenceUpdate('available', chatId); }
-            await new Promise(resolve => setTimeout(resolve, 500));
-            
             await sock.sendPresenceUpdate('composing', chatId);
             const typingDelay = Math.max(3000, Math.min(8000, userMessage.length * 150));
             await new Promise(resolve => setTimeout(resolve, typingDelay));
@@ -100,9 +90,6 @@ async function handleAutotypingForCommand(sock, chatId) {
     if (enabled) {
         try {
             await sock.presenceSubscribe(chatId);
-            if (await isAlwaysOnline()) { await sock.sendPresenceUpdate('available', chatId); }
-            await new Promise(resolve => setTimeout(resolve, 500));
-            
             await sock.sendPresenceUpdate('composing', chatId);
             const commandTypingDelay = 3000;
             await new Promise(resolve => setTimeout(resolve, commandTypingDelay));
