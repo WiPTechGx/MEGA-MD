@@ -16,7 +16,6 @@ function initializeWarningsFile() {
     if (!fs.existsSync(databaseDir)) {
       fs.mkdirSync(databaseDir, { recursive: true });
     }
-    
     if (!fs.existsSync(warningsPath)) {
       fs.writeFileSync(warningsPath, JSON.stringify({}), 'utf8');
     }
@@ -29,6 +28,7 @@ async function getWarnings() {
     return warnings || {};
   } else {
     try {
+      if (!fs.existsSync(warningsPath)) return {};
       return JSON.parse(fs.readFileSync(warningsPath, 'utf8'));
     } catch (error) {
       return {};
@@ -46,106 +46,135 @@ async function saveWarnings(warnings) {
 
 module.exports = {
   command: 'warn',
-  aliases: ['warning'],
+  aliases: ['warning', 'warnings', 'checkwarn', 'warncount'],
   category: 'admin',
-  description: 'Warn a user (auto-kick after 3 warnings)',
-  usage: '.warn [@user] or reply to message',
+  description: 'Warn a user (auto-kick after 3 warnings), check warning count, or reset warnings',
+  usage: '.warn [@user] | .warnings [@user] | .warn reset [@user]',
   groupOnly: true,
-  adminOnly: true,
+  adminOnly: false, // Handled dynamically so any member can check their own warnings with .warnings
   
-  async handler(sock, message, args, context) {
-    const { chatId, senderId, channelInfo } = context;
-    
+  async handler(sock, message, args, context = {}) {
+    const { chatId, senderId, channelInfo, isAdmin } = context;
+    const invoked = (context.invokedCmd || context.command || '').toLowerCase();
+    const firstArg = (args[0] || '').toLowerCase();
+    const isCheckMode = invoked === 'warnings' || invoked === 'checkwarn' || invoked === 'warncount' ||
+                        firstArg === 'check' || firstArg === 'count' || firstArg === 'status';
+    const isResetMode = firstArg === 'reset' || firstArg === 'clear';
+
     try {
       initializeWarningsFile();
 
-      let userToWarn;
-      const mentionedJids = message.message?.extendedTextMessage?.contextInfo?.mentionedJid;
-      
-      if (mentionedJids && mentionedJids.length > 0) {
-        userToWarn = mentionedJids[0];
+      // Resolve target user
+      let targetUser;
+      const ctx = message.message?.extendedTextMessage?.contextInfo;
+      if (ctx?.mentionedJid && ctx.mentionedJid.length > 0) {
+        targetUser = ctx.mentionedJid[0];
+      } else if (ctx?.participant) {
+        targetUser = ctx.participant;
+      } else if (args[0] && !['check', 'count', 'status', 'reset', 'clear'].includes(firstArg)) {
+        const rawNum = args[0].replace(/[^0-9]/g, '');
+        if (rawNum.length >= 7) targetUser = `${rawNum}@s.whatsapp.net`;
+      } else if (args[1]) {
+        const rawNum = args[1].replace(/[^0-9]/g, '');
+        if (rawNum.length >= 7) targetUser = `${rawNum}@s.whatsapp.net`;
       }
-      else if (message.message?.extendedTextMessage?.contextInfo?.participant) {
-        userToWarn = message.message.extendedTextMessage.contextInfo.participant;
+
+      // If in check mode and no target specified, default to sender
+      if (isCheckMode && !targetUser) {
+        targetUser = senderId;
       }
-      
-      if (!userToWarn) {
-        await sock.sendMessage(chatId, { 
-          text: '❌ Error: Please mention the user or reply to their message to warn!',
+
+      let warnings = await getWarnings();
+
+      // --- 1. CHECK WARNINGS MODE ---
+      if (isCheckMode) {
+        const count = (warnings[chatId] && warnings[chatId][targetUser]) || 0;
+        return await sock.sendMessage(chatId, { 
+          text: `📊 *WARNING STATUS*\n\n` +
+                `👤 *User:* @${targetUser.split('@')[0]}\n` +
+                `⚠️ *Warnings:* ${count}/3\n` +
+                `🗄️ *Storage:* ${HAS_DB ? 'Database' : 'File System'}`,
+          mentions: [targetUser],
           ...channelInfo
         }, { quoted: message });
-        return;
       }
 
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      try {
-        let warnings = await getWarnings();
-        
-        if (!warnings[chatId]) warnings[chatId] = {};
-        if (!warnings[chatId][userToWarn]) warnings[chatId][userToWarn] = 0;
-        
-        warnings[chatId][userToWarn]++;
-        await saveWarnings(warnings);
-
-        const warningMessage = `*『 WARNING ALERT 』*\n\n` +
-          `👤 *Warned User:* @${userToWarn.split('@')[0]}\n` +
-          `⚠️ *Warning Count:* ${warnings[chatId][userToWarn]}/3\n` +
-          `👑 *Warned By:* @${senderId.split('@')[0]}\n` +
-          `🗄️ *Storage:* ${HAS_DB ? 'Database' : 'File System'}\n\n` +
-          `📅 *Date:* ${new Date().toLocaleString()}`;
-
-        await sock.sendMessage(chatId, { 
-          text: warningMessage,
-          mentions: [userToWarn, senderId],
+      // Admin check for issuing or resetting warnings
+      if (!isAdmin) {
+        return await sock.sendMessage(chatId, {
+          text: '❌ *Admin permission required to warn or reset warnings.*',
           ...channelInfo
-        });
+        }, { quoted: message });
+      }
 
-        if (warnings[chatId][userToWarn] >= 3) {
-          await new Promise(resolve => setTimeout(resolve, 1000));
+      if (!targetUser) {
+        return await sock.sendMessage(chatId, { 
+          text: '❌ *Please mention a user or reply to their message.*\n\n*Examples:*\n• `.warn @user`\n• `.warnings @user`\n• `.warn reset @user`',
+          ...channelInfo
+        }, { quoted: message });
+      }
 
-          await sock.groupParticipantsUpdate(chatId, [userToWarn], "remove");
-          delete warnings[chatId][userToWarn];
+      // --- 2. RESET WARNINGS MODE ---
+      if (isResetMode) {
+        if (warnings[chatId] && warnings[chatId][targetUser]) {
+          delete warnings[chatId][targetUser];
+          await saveWarnings(warnings);
+        }
+        return await sock.sendMessage(chatId, {
+          text: `✅ *Warnings reset for @${targetUser.split('@')[0]}!*`,
+          mentions: [targetUser],
+          ...channelInfo
+        }, { quoted: message });
+      }
+
+      // --- 3. ISSUE WARNING MODE ---
+      if (!warnings[chatId]) warnings[chatId] = {};
+      if (!warnings[chatId][targetUser]) warnings[chatId][targetUser] = 0;
+
+      warnings[chatId][targetUser]++;
+      await saveWarnings(warnings);
+
+      const count = warnings[chatId][targetUser];
+      const warningMessage = `*『 WARNING ALERT 』*\n\n` +
+        `👤 *Warned User:* @${targetUser.split('@')[0]}\n` +
+        `⚠️ *Warning Count:* ${count}/3\n` +
+        `👑 *Warned By:* @${senderId.split('@')[0]}\n` +
+        `🗄️ *Storage:* ${HAS_DB ? 'Database' : 'File System'}\n\n` +
+        `📅 *Date:* ${new Date().toLocaleString()}`;
+
+      await sock.sendMessage(chatId, { 
+        text: warningMessage,
+        mentions: [targetUser, senderId],
+        ...channelInfo
+      });
+
+      // Auto-kick if threshold reached
+      if (count >= 3) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        try {
+          await sock.groupParticipantsUpdate(chatId, [targetUser], "remove");
+          delete warnings[chatId][targetUser];
           await saveWarnings(warnings);
           
           const kickMessage = `*『 AUTO-KICK 』*\n\n` +
-            `@${userToWarn.split('@')[0]} has been removed from the group after receiving 3 warnings! ⚠️`;
+            `@${targetUser.split('@')[0]} has been removed from the group after receiving 3 warnings! ⚠️`;
 
           await sock.sendMessage(chatId, { 
             text: kickMessage,
-            mentions: [userToWarn],
+            mentions: [targetUser],
             ...channelInfo
           });
+        } catch (kickErr) {
+          console.error('Auto-kick failed:', kickErr);
         }
-      } catch (error) {
-        console.error('Error in warn command:', error);
-        await sock.sendMessage(chatId, { 
-          text: '❌ Failed to warn user!',
-          ...channelInfo
-        }, { quoted: message });
       }
+
     } catch (error) {
       console.error('Error in warn command:', error);
-      if (error.data === 429) {
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        try {
-          await sock.sendMessage(chatId, { 
-            text: '❌ Rate limit reached. Please try again in a few seconds.',
-            ...channelInfo
-          }, { quoted: message });
-        } catch (retryError) {
-          console.error('Error sending retry message:', retryError);
-        }
-      } else {
-        try {
-          await sock.sendMessage(chatId, { 
-            text: '❌ Failed to warn user. Make sure the bot is admin and has sufficient permissions.',
-            ...channelInfo
-          }, { quoted: message });
-        } catch (sendError) {
-          console.error('Error sending error message:', sendError);
-        }
-      }
+      await sock.sendMessage(chatId, { 
+        text: '❌ Failed to process warning action.',
+        ...channelInfo
+      }, { quoted: message });
     }
   }
 };

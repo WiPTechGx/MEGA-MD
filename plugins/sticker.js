@@ -6,18 +6,78 @@ const settings = require('../settings');
 const webp = require('node-webpmux');
 const crypto = require('crypto');
 
+async function stickercropFromBuffer(inputBuffer, isAnimated) {
+  const tmpDir = path.join(process.cwd(), 'tmp');
+  if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
+
+  const tempInput = path.join(tmpDir, `cropbuf_${Date.now()}`);
+  const tempOutput = path.join(tmpDir, `cropbuf_out_${Date.now()}.webp`);
+
+  fs.writeFileSync(tempInput, inputBuffer);
+  const fileSizeKB = inputBuffer.length / 1024;
+  const isLargeFile = fileSizeKB > 5000;
+
+  let ffmpegCommand;
+  if (isAnimated) {
+    if (isLargeFile) {
+      ffmpegCommand = `ffmpeg -y -i "${tempInput}" -t 2 -vf "crop=min(iw\\,ih):min(iw\\,ih),scale=512:512,fps=8" -c:v libwebp -preset default -loop 0 -vsync 0 -pix_fmt yuva420p -quality 30 -compression_level 6 -b:v 100k -max_muxing_queue_size 1024 "${tempOutput}"`;
+    } else {
+      ffmpegCommand = `ffmpeg -y -i "${tempInput}" -t 3 -vf "crop=min(iw\\,ih):min(iw\\,ih),scale=512:512,fps=12" -c:v libwebp -preset default -loop 0 -vsync 0 -pix_fmt yuva420p -quality 50 -compression_level 6 -b:v 150k -max_muxing_queue_size 1024 "${tempOutput}"`;
+    }
+  } else {
+    ffmpegCommand = `ffmpeg -y -i "${tempInput}" -vf "crop=min(iw\\,ih):min(iw\\,ih),scale=512:512,format=rgba" -c:v libwebp -preset default -loop 0 -vsync 0 -pix_fmt yuva420p -quality 75 -compression_level 6 "${tempOutput}"`;
+  }
+
+  await new Promise((resolve, reject) => {
+    exec(ffmpegCommand, (error) => {
+      if (error) return reject(error);
+      resolve();
+    });
+  });
+
+  const webpBuffer = fs.readFileSync(tempOutput);
+
+  const img = new webp.Image();
+  await img.load(webpBuffer);
+  const packname = settings.packname || 'PGWIZ AI';
+  const author = settings.author || settings.botOwner || 'pgwiz';
+  const json = {
+    'sticker-pack-id': crypto.randomBytes(32).toString('hex'),
+    'sticker-pack-name': packname,
+    'sticker-pack-publisher': author,
+    'emojis': ['✂️']
+  };
+  const exifAttr = Buffer.from([0x49, 0x49, 0x2A, 0x00, 0x08, 0x00, 0x00, 0x00, 0x01, 0x00, 0x41, 0x57, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00, 0x16, 0x00, 0x00, 0x00]);
+  const jsonBuffer = Buffer.from(JSON.stringify(json), 'utf8');
+  const exif = Buffer.concat([exifAttr, jsonBuffer]);
+  exif.writeUIntLE(jsonBuffer.length, 14, 4);
+  img.exif = exif;
+  const finalBuffer = await img.save(null);
+
+  try {
+    if (fs.existsSync(tempInput)) fs.unlinkSync(tempInput);
+    if (fs.existsSync(tempOutput)) fs.unlinkSync(tempOutput);
+  } catch {}
+
+  return finalBuffer;
+}
+
 module.exports = {
   command: 'sticker',
-  aliases: ['s', 'stik', 'sticker2', 's2', 'stik2'],
+  aliases: ['s', 'stik', 'sticker2', 's2', 'stik2', 'crop', 'stickercrop', 'scrop'],
   category: 'stickers',
-  description: 'Convert image/video to WhatsApp sticker with metadata and compression fallback',
-  usage: '.sticker (reply to image/video or send with caption)',
-  
+  description: 'Convert image/video to WhatsApp sticker with metadata, aspect-ratio padding or circular/square crop',
+  usage: '.sticker (reply to image/video) | .crop (for square-cropped sticker)',
+
   async handler(sock, message, args, context = {}) {
     const chatId = context.chatId || message.key.remoteJid;
     const channelInfo = context.channelInfo || {};
     const messageToQuote = message;
     let targetMessage = message;
+
+    const invoked = (context.invokedCmd || context.command || '').toLowerCase();
+    const shouldCrop = invoked === 'crop' || invoked === 'stickercrop' || invoked === 'scrop' || 
+                       args.includes('crop') || args.includes('--crop');
 
     if (message.message?.extendedTextMessage?.contextInfo?.quotedMessage) {
       const quotedInfo = message.message.extendedTextMessage.contextInfo;
@@ -33,11 +93,12 @@ module.exports = {
 
     const mediaMessage = targetMessage.message?.imageMessage || 
                          targetMessage.message?.videoMessage || 
-                         targetMessage.message?.documentMessage;
+                         targetMessage.message?.documentMessage ||
+                         targetMessage.message?.stickerMessage;
 
     if (!mediaMessage) {
       await sock.sendMessage(chatId, { 
-        text: 'Please reply to an image/video with .sticker, or send an image/video with .sticker as the caption.',
+        text: 'Please reply to an image/video/sticker with .sticker (or .crop for square crop), or send with caption.',
         ...channelInfo
       }, { quoted: messageToQuote });
       return;
@@ -71,9 +132,16 @@ module.exports = {
                         mediaMessage.mimetype?.includes('video') || 
                         mediaMessage.seconds > 0;
 
-      const ffmpegCommand = isAnimated
-        ? `ffmpeg -y -i "${tempInput}" -vf "scale=512:512:force_original_aspect_ratio=decrease,fps=15,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=#00000000" -c:v libwebp -preset default -loop 0 -vsync 0 -pix_fmt yuva420p -quality 75 -compression_level 6 "${tempOutput}"`
-        : `ffmpeg -y -i "${tempInput}" -vf "scale=512:512:force_original_aspect_ratio=decrease,format=rgba,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=#00000000" -c:v libwebp -preset default -loop 0 -vsync 0 -pix_fmt yuva420p -quality 75 -compression_level 6 "${tempOutput}"`;
+      let ffmpegCommand;
+      if (shouldCrop) {
+        ffmpegCommand = isAnimated
+          ? `ffmpeg -y -i "${tempInput}" -t 3 -vf "crop=min(iw\\,ih):min(iw\\,ih),scale=512:512,fps=12" -c:v libwebp -preset default -loop 0 -vsync 0 -pix_fmt yuva420p -quality 50 -compression_level 6 -b:v 150k -max_muxing_queue_size 1024 "${tempOutput}"`
+          : `ffmpeg -y -i "${tempInput}" -vf "crop=min(iw\\,ih):min(iw\\,ih),scale=512:512,format=rgba" -c:v libwebp -preset default -loop 0 -vsync 0 -pix_fmt yuva420p -quality 75 -compression_level 6 "${tempOutput}"`;
+      } else {
+        ffmpegCommand = isAnimated
+          ? `ffmpeg -y -i "${tempInput}" -vf "scale=512:512:force_original_aspect_ratio=decrease,fps=15,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=#00000000" -c:v libwebp -preset default -loop 0 -vsync 0 -pix_fmt yuva420p -quality 75 -compression_level 6 "${tempOutput}"`
+          : `ffmpeg -y -i "${tempInput}" -vf "scale=512:512:force_original_aspect_ratio=decrease,format=rgba,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=#00000000" -c:v libwebp -preset default -loop 0 -vsync 0 -pix_fmt yuva420p -quality 75 -compression_level 6 "${tempOutput}"`;
+      }
 
       await new Promise((resolve, reject) => {
         exec(ffmpegCommand, (error) => {
@@ -91,9 +159,10 @@ module.exports = {
           const tempOutput2 = path.join(tmpDir, `sticker_fallback_${Date.now()}.webp`);
           const fileSizeKB = mediaBuffer.length / 1024;
           const isLargeFile = fileSizeKB > 5000;
+          const cropFilter = shouldCrop ? 'crop=min(iw\\,ih):min(iw\\,ih),' : '';
           const fallbackCmd = isLargeFile
-            ? `ffmpeg -y -i "${tempInput}" -t 2 -vf "scale=512:512:force_original_aspect_ratio=decrease,fps=8,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=#00000000" -c:v libwebp -preset default -loop 0 -vsync 0 -pix_fmt yuva420p -quality 30 -compression_level 6 -b:v 100k -max_muxing_queue_size 1024 "${tempOutput2}"`
-            : `ffmpeg -y -i "${tempInput}" -t 3 -vf "scale=512:512:force_original_aspect_ratio=decrease,fps=12,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=#00000000" -c:v libwebp -preset default -loop 0 -vsync 0 -pix_fmt yuva420p -quality 45 -compression_level 6 -b:v 150k -max_muxing_queue_size 1024 "${tempOutput2}"`;
+            ? `ffmpeg -y -i "${tempInput}" -t 2 -vf "${cropFilter}scale=512:512:force_original_aspect_ratio=decrease,fps=8,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=#00000000" -c:v libwebp -preset default -loop 0 -vsync 0 -pix_fmt yuva420p -quality 30 -compression_level 6 -b:v 100k -max_muxing_queue_size 1024 "${tempOutput2}"`
+            : `ffmpeg -y -i "${tempInput}" -t 3 -vf "${cropFilter}scale=512:512:force_original_aspect_ratio=decrease,fps=12,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=#00000000" -c:v libwebp -preset default -loop 0 -vsync 0 -pix_fmt yuva420p -quality 45 -compression_level 6 -b:v 150k -max_muxing_queue_size 1024 "${tempOutput2}"`;
           await new Promise((resolve, reject) => {
             exec(fallbackCmd, (error) => error ? reject(error) : resolve());
           });
@@ -113,7 +182,7 @@ module.exports = {
         'sticker-pack-id': crypto.randomBytes(32).toString('hex'),
         'sticker-pack-name': packname,
         'sticker-pack-publisher': author,
-        'emojis': ['🤖']
+        'emojis': [shouldCrop ? '✂️' : '🤖']
       };
 
       const exifAttr = Buffer.from([0x49, 0x49, 0x2A, 0x00, 0x08, 0x00, 0x00, 0x00, 0x01, 0x00, 0x41, 0x57, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00, 0x16, 0x00, 0x00, 0x00]);
@@ -162,5 +231,7 @@ module.exports = {
         ...channelInfo
       }, { quoted: messageToQuote });
     }
-  }
+  },
+
+  stickercropFromBuffer
 };

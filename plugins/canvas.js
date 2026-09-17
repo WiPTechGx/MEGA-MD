@@ -50,7 +50,7 @@ async function handleHeart(sock, chatId, message) {
 
 module.exports = {
     command: 'canvas',
-    aliases: ['canvas', 'overlay'],
+    aliases: ['overlay'],
     category: 'menu',
     description: 'Generate various fun images using avatar',
     usage: '.canvas <type> [args]',

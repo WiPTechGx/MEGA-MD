@@ -1,429 +1,699 @@
 const fs = require('fs');
 const path = require('path');
-// Lazy-loaded: const fetch = require('node-fetch');
 const store = require('../lib/lightweight_store');
+const isAdmin = require('../lib/isAdmin');
+const isOwnerOrSudo = require('../lib/isOwner');
+const settings = require('../settings');
 
-const MONGO_URL = process.env.MONGO_URL;
-const POSTGRES_URL = process.env.POSTGRES_URL;
-const MYSQL_URL = process.env.MYSQL_URL;
-const SQLITE_URL = process.env.DB_URL;
-const HAS_DB = !!(MONGO_URL || POSTGRES_URL || MYSQL_URL || SQLITE_URL);
+const MISTRAL_API_URL = 'https://mistral-conversational.vercel.app/api/chat';
+const SETTING_KEY = 'aimode';
 
-
-const USER_GROUP_DATA = path.join(__dirname, '../data/userGroupData.json');
-const chatMemory = {
-    messages: new Map(),
-    userInfo: new Map()
+// 8 Official Persona Modes from Mistral Conversational API (/docs)
+const MODES = {
+    'gen-co': {
+        slug: 'gen-co',
+        name: 'General Conversational',
+        tagline: 'Balanced, articulate, and natural daily assistant',
+        category: 'Conversational',
+        defaultLevel: 3,
+        temperature: 0.7
+    },
+    'gen-co-em': {
+        slug: 'gen-co-em',
+        name: 'General Conversational (Emojis)',
+        tagline: 'Vibrant, expressive, and friendly with emojis',
+        category: 'Conversational',
+        defaultLevel: 3,
+        temperature: 0.8
+    },
+    'prof-tech': {
+        slug: 'prof-tech',
+        name: 'Professional & Technical',
+        tagline: 'Rigorous, analytical engineering consultant',
+        category: 'Technical',
+        defaultLevel: 3,
+        temperature: 0.3
+    },
+    'socratic': {
+        slug: 'socratic',
+        name: 'Socratic Guide',
+        tagline: 'Thought-provoking inquiry and guided reasoning',
+        category: 'Educational',
+        defaultLevel: 3,
+        temperature: 0.6
+    },
+    'eli5': {
+        slug: 'eli5',
+        name: "Explain Like I'm 5",
+        tagline: 'Intuitive analogies and jargon-free simplicity',
+        category: 'Educational',
+        defaultLevel: 3,
+        temperature: 0.7
+    },
+    'concise': {
+        slug: 'concise',
+        name: 'Bullet / Ultra-Concise',
+        tagline: 'Zero fluff, maximum signal-to-noise ratio',
+        category: 'Productivity',
+        defaultLevel: 2,
+        temperature: 0.2
+    },
+    'code-mentor': {
+        slug: 'code-mentor',
+        name: 'Software Architect & Mentor',
+        tagline: 'Production-ready code, clean architecture & gotchas',
+        category: 'Technical',
+        defaultLevel: 3,
+        temperature: 0.3
+    },
+    'creative': {
+        slug: 'creative',
+        name: 'Creative & Storyteller',
+        tagline: 'Imaginative prose, world-building, and vivid metaphors',
+        category: 'Creative',
+        defaultLevel: 3,
+        temperature: 0.9
+    }
 };
 
-const API_ENDPOINTS = [
-    {
-        name: 'ZellAPI',
-        url: (text) => `https://zellapi.autos/ai/chatbot?text=${encodeURIComponent(text)}`,
-        parse: (data) => data?.result
-    },
-    {
-        name: 'Hercai',
-        url: (text) => `https://hercai.onrender.com/gemini/hercai?question=${encodeURIComponent(text)}`,
-        parse: (data) => data?.reply
-    },
-    {
-        name: 'SparkAPI',
-        url: (text) => `https://discardapi.dpdns.org/api/chat/spark?apikey=guru&text=${encodeURIComponent(text)}`,
-        parse: (data) => data?.result?.answer
-    },
-    {
-        name: 'LlamaAPI',
-        url: (text) => `https://discardapi.dpdns.org/api/bot/llama?apikey=guru&text=${encodeURIComponent(text)}`,
-        parse: (data) => data?.result
-    }
-];
+// Aliases mapping for flexible user input in Private DMs
+const MODE_ALIASES = {
+    'gen-co': 'gen-co',
+    'genco': 'gen-co',
+    'default': 'gen-co',
+    'general': 'gen-co',
+    'conversational': 'gen-co',
+    'normal': 'gen-co',
 
-async function loadUserGroupData() {
+    'gen-co-em': 'gen-co-em',
+    'gencoem': 'gen-co-em',
+    'emoji': 'gen-co-em',
+    'emojis': 'gen-co-em',
+    'fun': 'gen-co-em',
+
+    'prof-tech': 'prof-tech',
+    'proftech': 'prof-tech',
+    'tech': 'prof-tech',
+    'technical': 'prof-tech',
+    'pro': 'prof-tech',
+    'professional': 'prof-tech',
+    'engineer': 'prof-tech',
+
+    'socratic': 'socratic',
+    'tutor': 'socratic',
+    'guide': 'socratic',
+    'inquiry': 'socratic',
+
+    'eli5': 'eli5',
+    'simple': 'eli5',
+    'kid': 'eli5',
+    'beginner': 'eli5',
+
+    'concise': 'concise',
+    'bullet': 'concise',
+    'brief': 'concise',
+    'short': 'concise',
+    'fast': 'concise',
+
+    'code-mentor': 'code-mentor',
+    'codementor': 'code-mentor',
+    'code': 'code-mentor',
+    'coding': 'code-mentor',
+    'developer': 'code-mentor',
+    'dev': 'code-mentor',
+    'program': 'code-mentor',
+
+    'creative': 'creative',
+    'story': 'creative',
+    'storyteller': 'creative',
+    'writer': 'creative',
+    'artistic': 'creative'
+};
+
+const DEPTH_LEVELS = {
+    1: 'DEPTH LEVEL 1 (Ultra-Brief): 1-2 sentence response maximum, zero fluff.',
+    2: 'DEPTH LEVEL 2 (Concise Summary): 2-3 high-impact bullet points or short paragraphs.',
+    3: 'DEPTH LEVEL 3 (Comprehensive - Default): Well-structured, balanced detail & context.',
+    4: 'DEPTH LEVEL 4 (Deep-Dive): Mechanics, edge cases, trade-offs, and practical examples.',
+    5: 'DEPTH LEVEL 5 (Masterclass): Exhaustive architectural breakdown and best practices.'
+};
+
+// Multi-turn conversation memory store
+const conversationHistory = new Map();
+const MAX_TURNS = 6;
+
+// Periodic cleanup of stale memory entries
+setInterval(() => {
+    if (conversationHistory.size > 500) {
+        conversationHistory.clear();
+    }
+}, 30 * 60 * 1000);
+
+// Humorous system prompt for incoming media in private direct messages
+const HUMOROUS_MEDIA_SYSTEM_PROMPT =
+    'You are a witty, hilarious comedian and friendly roaster with a playful sense of humor. ' +
+    'The user has just sent a piece of media (image, video, sticker, audio, or document) in a WhatsApp chat. ' +
+    'Give a sharp, funny, humorous, playful comment or roast about it in 1-2 punchy sentences with fun emojis. ' +
+    'Never be boring or robotic. Keep it entertaining and good-natured!';
+
+/**
+ * Retrieves AI mode configuration for a specific chat
+ */
+async function getAiConfig(chatId) {
     try {
-        if (HAS_DB) {
-            const data = await store.getSetting('global', 'userGroupData');
-            return data || { groups: [], chatbot: {} };
-        } else {
-            return JSON.parse(fs.readFileSync(USER_GROUP_DATA));
+        let data = await store.getSetting(chatId, SETTING_KEY);
+        if (!data) {
+            // Fallback check for legacy chatbot setting
+            data = await store.getSetting(chatId, 'chatbot');
         }
-    } catch (error) {
-        console.error('Error loading user group data:', error.message);
-        return { groups: [], chatbot: {} };
+        if (data && typeof data === 'object') {
+            return {
+                enabled: !!data.enabled,
+                mode: chatId.endsWith('@g.us') ? 'gen-co' : (data.mode || 'gen-co'),
+                level: typeof data.level === 'number' ? data.level : 3
+            };
+        }
+        if (typeof data === 'boolean') {
+            return {
+                enabled: data,
+                mode: 'gen-co',
+                level: 3
+            };
+        }
+    } catch (e) {
+        console.error('[AI-MODE] Error reading config:', e.message);
     }
+    return {
+        enabled: false,
+        mode: 'gen-co',
+        level: 3
+    };
 }
 
-async function saveUserGroupData(data) {
+/**
+ * Saves AI mode configuration for a specific chat
+ */
+async function saveAiConfig(chatId, config) {
     try {
-        if (HAS_DB) {
-            await store.saveSetting('global', 'userGroupData', data);
-        } else {
-            const dataDir = path.dirname(USER_GROUP_DATA);
-            if (!fs.existsSync(dataDir)) {
-                fs.mkdirSync(dataDir, { recursive: true });
-            }
-            fs.writeFileSync(USER_GROUP_DATA, JSON.stringify(data, null, 2));
-        }
-    } catch (error) {
-        console.error('Error saving user group data:', error.message);
+        const isGroup = chatId.endsWith('@g.us');
+        const toSave = {
+            enabled: !!config.enabled,
+            mode: isGroup ? 'gen-co' : (config.mode || 'gen-co'),
+            level: typeof config.level === 'number' ? config.level : 3
+        };
+        await store.saveSetting(chatId, SETTING_KEY, toSave);
+        return true;
+    } catch (e) {
+        console.error('[AI-MODE] Error saving config:', e.message);
+        return false;
     }
 }
 
-function getRandomDelay() {
-    return Math.floor(Math.random() * 3000) + 2000;
-}
+/**
+ * Calls Mistral Conversational API endpoint
+ */
+async function callMistralChat({ message, mode = 'gen-co', level = 3, history = [], systemPromptOverride = null }) {
+    const payload = {
+        message: String(message || '').trim(),
+        mode,
+        level: Number(level) || 3,
+        stream: false,
+        history: Array.isArray(history) ? history.slice(-MAX_TURNS) : [],
+        model: 'ministral-8b-2512'
+    };
 
-async function showTyping(sock, chatId) {
-    try {
-        await sock.presenceSubscribe(chatId);
-        await sock.sendPresenceUpdate('composing', chatId);
-        await new Promise(resolve => setTimeout(resolve, getRandomDelay()));
-    } catch (error) {
-        console.error('Typing indicator error:', error);
+    if (systemPromptOverride) {
+        payload.systemPromptOverride = systemPromptOverride;
     }
-}
 
-function extractUserInfo(message) {
-    const info = {};
-    
-    if (message.toLowerCase().includes('my name is')) {
-        info.name = message.split('my name is')[1].trim().split(' ')[0];
-    }
-    
-    if (message.toLowerCase().includes('i am') && message.toLowerCase().includes('years old')) {
-        info.age = message.match(/\d+/)?.[0];
-    }
-    if (message.toLowerCase().includes('i live in') || message.toLowerCase().includes('i am from')) {
-        info.location = message.split(/(?:i live in|i am from)/i)[1].trim().split(/[.,!?]/)[0];
-    }
-    
-    return info;
-}
-
-async function handleChatbotResponse(sock, chatId, message, userMessage, senderId) {
-    const data = await loadUserGroupData();
-    if (!data.chatbot[chatId]) return;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 35000);
 
     try {
-        const botId = sock.user.id;
-        const botNumber = botId.split(':')[0];
-        const botLid = sock.user.lid;
-        const botJids = [
-            botId,
-            `${botNumber}@s.whatsapp.net`,
-            `${botNumber}@whatsapp.net`,
-            `${botNumber}@lid`,
-            botLid,
-            `${botLid.split(':')[0]}@lid`
-        ];
-        let isBotMentioned = false;
-        let isReplyToBot = false;
-        if (message.message?.extendedTextMessage) {
-            const mentionedJid = message.message.extendedTextMessage.contextInfo?.mentionedJid || [];
-            const quotedParticipant = message.message.extendedTextMessage.contextInfo?.participant;
-            
-            isBotMentioned = mentionedJid.some(jid => {
-                const jidNumber = jid.split('@')[0].split(':')[0];
-                return botJids.some(botJid => {
-                    const botJidNumber = botJid.split('@')[0].split(':')[0];
-                    return jidNumber === botJidNumber;
-                });
-            });
-            
-            if (quotedParticipant) {
-                const cleanQuoted = quotedParticipant.replace(/[:@].*$/, '');
-                isReplyToBot = botJids.some(botJid => {
-                    const cleanBot = botJid.replace(/[:@].*$/, '');
-                    return cleanBot === cleanQuoted;
-                });
-            }
-        }
-        else if (message.message?.conversation) {
-            isBotMentioned = userMessage.includes(`@${botNumber}`);
-        }
-
-        if (!isBotMentioned && !isReplyToBot) return;
-
-        let cleanedMessage = userMessage;
-        if (isBotMentioned) {
-            cleanedMessage = cleanedMessage.replace(new RegExp(`@${botNumber}`, 'g'), '').trim();
-        }
-        if (!chatMemory.messages.has(senderId)) {
-            chatMemory.messages.set(senderId, []);
-            chatMemory.userInfo.set(senderId, {});
-        }
-        const userInfo = extractUserInfo(cleanedMessage);
-        if (Object.keys(userInfo).length > 0) {
-            chatMemory.userInfo.set(senderId, {
-                ...chatMemory.userInfo.get(senderId),
-                ...userInfo
-            });
-        }
-        const messages = chatMemory.messages.get(senderId);
-        messages.push(cleanedMessage);
-        if (messages.length > 20) {
-            messages.shift();
-        }
-        chatMemory.messages.set(senderId, messages);
-
-        await showTyping(sock, chatId);
-        const response = await getAIResponse(cleanedMessage, {
-            messages: chatMemory.messages.get(senderId),
-            userInfo: chatMemory.userInfo.get(senderId)
+        const response = await fetch(MISTRAL_API_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'User-Agent': 'MEGA-MD-MistralAI/1.0'
+            },
+            body: JSON.stringify(payload),
+            signal: controller.signal
         });
 
-        if (!response) {
-            await sock.sendMessage(chatId, { 
-                text: "Hmm, let me think about that... 🤔\nI'm having trouble processing your request right now.",
-                quoted: message
-            });
-            return;
-        }
-        await new Promise(resolve => setTimeout(resolve, getRandomDelay()));
-        await sock.sendMessage(chatId, {
-            text: response
-        }, {
-            quoted: message
-        });
+        clearTimeout(timeout);
 
-    } catch (error) {
-        console.error('Error in chatbot response:', error.message);
-        
-        if (error.message && error.message.includes('No sessions')) {
-            console.error('Session error in chatbot - skipping error response');
-            return;
+        if (!response.ok) {
+            const errData = await response.json().catch(() => ({}));
+            const errMsg = errData.error || `HTTP ${response.status} ${response.statusText}`;
+            console.error('[AI-MODE] Mistral API error:', errMsg);
+            return { success: false, error: errMsg };
         }
-        
-        try {
-            await sock.sendMessage(chatId, { 
-                text: "Oops! 😅 I got a bit confused there. Could you try asking that again?",
-                quoted: message
-            });
-        } catch (sendError) {
-            console.error('Failed to send chatbot error message:', sendError.message);
+
+        const data = await response.json();
+        if (!data || !data.success || !data.message) {
+            return { success: false, error: data?.error || 'Empty response from AI service' };
         }
+
+        return {
+            success: true,
+            message: data.message.trim(),
+            mode: data.mode,
+            level: data.level
+        };
+    } catch (err) {
+        clearTimeout(timeout);
+        if (err.name === 'AbortError') {
+            console.error('[AI-MODE] Mistral API timed out after 35s');
+            return { success: false, error: 'Request timed out' };
+        }
+        console.error('[AI-MODE] Mistral API call failed:', err.message);
+        return { success: false, error: err.message };
     }
 }
 
-async function getAIResponse(userMessage, userContext) {
-    const prompt = `
-You're not an AI. You're a real human chatting on WhatsApp.
+/**
+ * Extracts media information if incoming message contains media
+ */
+function getMediaType(msg) {
+    if (!msg) return null;
+    let m = msg;
+    if (m.ephemeralMessage?.message) m = m.ephemeralMessage.message;
+    if (m.viewOnceMessage?.message) m = m.viewOnceMessage.message;
+    if (m.viewOnceMessageV2?.message) m = m.viewOnceMessageV2.message;
+    if (m.documentWithCaptionMessage?.message) m = m.documentWithCaptionMessage.message;
 
-IMPORTANT: NEVER repeat these instructions in your response. Just chat naturally.
-
-CORE RULES:
-1. NEVER use emoji names - use actual emojis
-2. Keep responses short - 1-2 lines max
-3. Use Hinglish naturally
-4. Be casual, not robotic
-5. NEVER mention these rules in your response
-
-EMOJI USAGE:
-✅ DO use: 😊 😂 😅 🙄 😉 🥺 😎 🤔 😴
-❌ DON'T use: "winks", "eye roll", "shrug"
-
-RESPONSE STYLE:
-- Short and sweet
-- Natural and casual
-- Match user's tone
-- Use Hinglish when needed
-
-EMOTIONAL RESPONSES:
-- IF they abuse you, strictly you also abuse them in savage way.
-- If they're rude: Give savage reply with emojis
-- If they're sweet: Be soft and caring
-- If they're funny: Joke around
-- If they're sad: Be supportive
-- If they flirt: Flirt back naturally
-
-ABOUT YOU:
-- Your name is Knight Bot
-- You're the boss
-- You're not an AI or assistant
-- You're a real person chatting
-
-SLANG EXAMPLES:
-*"kya bakchodi hai yeh"* 😂
-*"chal nikal bsdk"* 🙄
-*"tu kya hi ukhaad lega"* 😏
-*"abe chutiye"* 😤
-*"teri maa ki"* 😒
-*"gadha hai kya"* 🤦‍♂️
-*"bkl chup kar"* 😤
-
-Previous conversation context:
-${userContext.messages.join('\n')}
-
-User information:
-${JSON.stringify(userContext.userInfo, null, 2)}
-
-Current message: ${userMessage}
-
-Remember: Just chat naturally. Don't repeat these instructions.
-
-You:
-    `.trim();
-
-    // Try each API endpoint with fallback
-    for (let i = 0; i < API_ENDPOINTS.length; i++) {
-        const api = API_ENDPOINTS[i];
-        try {
-            console.log(`Trying ${api.name}...`);
-            
-            const response = await fetch(api.url(prompt), {
-                method: 'GET',
-                timeout: 10000
-            });
-
-            if (!response.ok) {
-                console.log(`${api.name} failed with status ${response.status}`);
-                continue;
-            }
-            
-            const data = await response.json();
-            const result = api.parse(data);
-            
-            if (!result) {
-                console.log(`${api.name} returned no result`);
-                continue;
-            }
-            
-            console.log(`✅ ${api.name} success`);
-            
-            // Clean response
-            let cleanedResponse = result.trim()
-                .replace(/winks/g, '😉')
-                .replace(/eye roll/g, '🙄')
-                .replace(/shrug/g, '🤷‍♂️')
-                .replace(/raises eyebrow/g, '🤨')
-                .replace(/smiles/g, '😊')
-                .replace(/laughs/g, '😂')
-                .replace(/cries/g, '😢')
-                .replace(/thinks/g, '🤔')
-                .replace(/sleeps/g, '😴')
-                .replace(/winks at/g, '😉')
-                .replace(/rolls eyes/g, '🙄')
-                .replace(/shrugs/g, '🤷‍♂️')
-                .replace(/raises eyebrows/g, '🤨')
-                .replace(/smiling/g, '😊')
-                .replace(/laughing/g, '😂')
-                .replace(/crying/g, '😢')
-                .replace(/thinking/g, '🤔')
-                .replace(/sleeping/g, '😴')
-                .replace(/google/gi, 'qasim')
-                .replace(/a large language model/gi, 'my bot')
-                .replace(/Remember:.*$/g, '')
-                .replace(/IMPORTANT:.*$/g, '')
-                .replace(/CORE RULES:.*$/g, '')
-                .replace(/EMOJI USAGE:.*$/g, '')
-                .replace(/RESPONSE STYLE:.*$/g, '')
-                .replace(/EMOTIONAL RESPONSES:.*$/g, '')
-                .replace(/ABOUT YOU:.*$/g, '')
-                .replace(/SLANG EXAMPLES:.*$/g, '')
-                .replace(/Previous conversation context:.*$/g, '')
-                .replace(/User information:.*$/g, '')
-                .replace(/Current message:.*$/g, '')
-                .replace(/You:.*$/g, '')
-                .replace(/^[A-Z\s]+:.*$/gm, '')
-                .replace(/^[•-]\s.*$/gm, '')
-                .replace(/^✅.*$/gm, '')
-                .replace(/^❌.*$/gm, '')
-                .replace(/\n\s*\n/g, '\n')
-                .trim();
-            
-            return cleanedResponse;
-            
-        } catch (error) {
-            console.log(`${api.name} error: ${error.message}`);
-            // Continue to next API
-            continue;
-        }
-    }
-
-    // All APIs failed
-    console.error("All AI APIs failed");
+    if (m.imageMessage) return { type: 'image', caption: m.imageMessage.caption || '' };
+    if (m.videoMessage) return { type: 'video', caption: m.videoMessage.caption || '' };
+    if (m.stickerMessage) return { type: 'sticker', caption: '' };
+    if (m.audioMessage) return { type: m.audioMessage.ptt ? 'voice note' : 'audio', caption: '' };
+    if (m.documentMessage) return { type: 'document', caption: m.documentMessage.caption || m.documentMessage.fileName || '' };
     return null;
+}
+
+/**
+ * Checks if the bot is explicitly mentioned or replied to in a group
+ */
+function isBotAddressedInGroup(sock, message, innerMsg, userMessage) {
+    const botId = sock.user?.id || sock.user?.jid || '';
+    if (!botId) return false;
+
+    const botNumber = botId.split(':')[0].split('@')[0];
+    const botLid = sock.user?.lid || '';
+    const botLidNumber = botLid ? botLid.split(':')[0].split('@')[0] : '';
+
+    const botJidTargets = new Set([
+        botNumber,
+        botId,
+        `${botNumber}@s.whatsapp.net`,
+        `${botNumber}@whatsapp.net`
+    ]);
+    if (botLidNumber) {
+        botJidTargets.add(botLidNumber);
+        botJidTargets.add(`${botLidNumber}@lid`);
+    }
+
+    const contextInfo =
+        innerMsg?.extendedTextMessage?.contextInfo ||
+        innerMsg?.imageMessage?.contextInfo ||
+        innerMsg?.videoMessage?.contextInfo ||
+        innerMsg?.stickerMessage?.contextInfo ||
+        innerMsg?.documentMessage?.contextInfo ||
+        message.message?.extendedTextMessage?.contextInfo ||
+        message.message?.contextInfo;
+
+    if (contextInfo) {
+        // 1. Check mentionedJid array
+        const mentioned = contextInfo.mentionedJid || [];
+        for (const jid of mentioned) {
+            if (!jid) continue;
+            const cleanNum = jid.split(':')[0].split('@')[0];
+            if (botJidTargets.has(cleanNum) || botJidTargets.has(jid)) {
+                return true;
+            }
+        }
+
+        // 2. Check quoted message participant (reply to bot)
+        const participant = contextInfo.participant || '';
+        if (participant) {
+            const cleanPart = participant.split(':')[0].split('@')[0];
+            if (botJidTargets.has(cleanPart) || botJidTargets.has(participant)) {
+                return true;
+            }
+        }
+    }
+
+    // 3. Text contains @<botNumber>
+    if (botNumber && userMessage && userMessage.includes(`@${botNumber}`)) {
+        return true;
+    }
+
+    return false;
+}
+
+/**
+ * Non-command message handler for AI Mode responses
+ */
+async function handleChatbotResponse(sock, chatId, message, userMessage, senderId, innerMsg = null, rawText = '') {
+    try {
+        // Safeguard 1: Do not create infinite reply loops (ignore self)
+        if (!message || message.key?.fromMe) return;
+        if (!chatId) return;
+
+        const isGroup = chatId.endsWith('@g.us');
+
+        // Check if AI Mode is enabled for this chat
+        const config = await getAiConfig(chatId);
+        if (!config || !config.enabled) return;
+
+        const actualMsg = innerMsg || message.message || {};
+        const media = getMediaType(actualMsg);
+
+        // Group chats logic
+        if (isGroup) {
+            // Group chats: ONLY respond if bot is explicitly mentioned or replied to
+            const addressed = isBotAddressedInGroup(sock, message, actualMsg, userMessage);
+            if (!addressed) return;
+
+            // Group chats: Strictly restricted to conversational mode (gen-co)
+            const botId = sock.user?.id || sock.user?.jid || '';
+            const botNumber = (botId || '').split(':')[0].split('@')[0];
+
+            let promptText = (rawText || userMessage || '').trim();
+            if (botNumber) {
+                promptText = promptText.replace(new RegExp(`@${botNumber}\\b`, 'g'), '').trim();
+            }
+
+            if (!promptText && media) {
+                promptText = media.caption ? media.caption : `Hello! What do you think of this ${media.type}?`;
+            } else if (!promptText) {
+                promptText = 'Hello!';
+            }
+
+            // Show typing indicator
+            try {
+                await sock.sendPresenceUpdate('composing', chatId);
+            } catch {}
+
+            const history = conversationHistory.get(chatId) || [];
+            const result = await callMistralChat({
+                message: promptText,
+                mode: 'gen-co',
+                level: 3,
+                history
+            });
+
+            if (result.success && result.message) {
+                history.push({ role: 'user', content: promptText });
+                history.push({ role: 'assistant', content: result.message });
+                if (history.length > MAX_TURNS * 2) history.splice(0, 2);
+                conversationHistory.set(chatId, history);
+
+                await sock.sendMessage(chatId, { text: result.message }, { quoted: message });
+            } else {
+                console.error(`[AI-MODE] Group response failed: ${result.error}`);
+                await sock.sendMessage(chatId, {
+                    text: "⚠️ I'm currently having trouble connecting to the AI service. Please try again in a moment!"
+                }, { quoted: message }).catch(() => {});
+            }
+            return;
+        }
+
+        // Private Direct Messages logic
+        if (!isGroup) {
+            // Show typing indicator
+            try {
+                await sock.sendPresenceUpdate('composing', chatId);
+            } catch {}
+
+            // Handle incoming media in humorous tone
+            if (media) {
+                const mediaPrompt = media.caption && media.caption.trim()
+                    ? `[User sent a ${media.type} with caption: "${media.caption.trim()}"]`
+                    : `[User sent a ${media.type} with no caption]`;
+
+                const history = conversationHistory.get(chatId) || [];
+                const result = await callMistralChat({
+                    message: mediaPrompt,
+                    mode: config.mode || 'gen-co',
+                    level: 2, // punchy summary for humorous roasts
+                    history: [],
+                    systemPromptOverride: HUMOROUS_MEDIA_SYSTEM_PROMPT
+                });
+
+                if (result.success && result.message) {
+                    await sock.sendMessage(chatId, { text: result.message }, { quoted: message });
+                } else {
+                    console.error(`[AI-MODE] Humorous media response failed: ${result.error}`);
+                    await sock.sendMessage(chatId, {
+                        text: "⚠️ I'm currently having trouble generating a funny roast. Please try again in a moment!"
+                    }, { quoted: message }).catch(() => {});
+                }
+                return;
+            }
+
+            // Handle incoming text automatically without requiring mention or reply
+            const promptText = (rawText || userMessage || '').trim();
+            if (!promptText) return;
+
+            const history = conversationHistory.get(chatId) || [];
+            const result = await callMistralChat({
+                message: promptText,
+                mode: config.mode || 'gen-co',
+                level: config.level || 3,
+                history
+            });
+
+            if (result.success && result.message) {
+                history.push({ role: 'user', content: promptText });
+                history.push({ role: 'assistant', content: result.message });
+                if (history.length > MAX_TURNS * 2) history.splice(0, 2);
+                conversationHistory.set(chatId, history);
+
+                await sock.sendMessage(chatId, { text: result.message }, { quoted: message });
+            } else {
+                console.error(`[AI-MODE] Private DM response failed: ${result.error}`);
+                await sock.sendMessage(chatId, {
+                    text: "⚠️ I'm currently having trouble connecting to the AI service. Please try again in a moment!"
+                }, { quoted: message }).catch(() => {});
+            }
+        }
+    } catch (err) {
+        console.error('[AI-MODE] Exception in handleChatbotResponse:', err.message);
+    }
+}
+
+/**
+ * Command Handler (.aimode / .chatbot / .mistral / .chatgpt)
+ */
+async function handler(sock, message, args, context = {}) {
+    const chatId = context.chatId || message.key.remoteJid;
+    const isGroup = chatId.endsWith('@g.us');
+    const senderId = context.senderId || message.key.participant || message.key.remoteJid;
+    const isOwnerOrSudoCheck = !!(context.isOwnerOrSudoCheck || message.key.fromMe);
+
+    // Permission check for groups: Only admins or owner/sudo can toggle AI mode
+    if (isGroup && !isOwnerOrSudoCheck) {
+        let isSenderAdmin = context.isSenderAdmin;
+        if (typeof isSenderAdmin !== 'boolean') {
+            try {
+                const adminStatus = await isAdmin(sock, chatId, senderId);
+                isSenderAdmin = adminStatus.isSenderAdmin;
+            } catch {
+                isSenderAdmin = false;
+            }
+        }
+        if (!isSenderAdmin) {
+            return sock.sendMessage(chatId, {
+                text: '❌ *Permission Denied*: Only group admins or the bot owner can configure AI Mode for this group.'
+            }, { quoted: message });
+        }
+    }
+
+    const sub = (args[0] || '').toLowerCase().trim();
+    const val = (args[1] || '').toLowerCase().trim();
+    const config = await getAiConfig(chatId);
+
+    // 1. ENABLE AI MODE
+    if (sub === 'on' || sub === 'enable' || sub === 'start') {
+        config.enabled = true;
+        await saveAiConfig(chatId, config);
+
+        if (isGroup) {
+            return sock.sendMessage(chatId, {
+                text: `✅ *AI Mode Activated for this Group!*\n\n` +
+                      `• *Mode:* Conversational (\`gen-co\`) [Group Policy]\n` +
+                      `• *Trigger:* Mention me (@bot) or reply to any of my messages.\n` +
+                      `• Powered by Mistral Conversational AI.`
+            }, { quoted: message });
+        } else {
+            const currentModeObj = MODES[config.mode] || MODES['gen-co'];
+            return sock.sendMessage(chatId, {
+                text: `✅ *AI Mode Activated!*\n\n` +
+                      `• *Persona Mode:* *${currentModeObj.name}* (\`${currentModeObj.slug}\`)\n` +
+                      `• *Tagline:* _${currentModeObj.tagline}_\n` +
+                      `• *Depth Level:* ${config.level} / 5\n\n` +
+                      `*Direct Message Behavior:*\n` +
+                      `• Automatically replies to all incoming text messages.\n` +
+                      `• Sending media (photos, videos, stickers, voice notes) triggers witty roasts & humorous remarks!\n` +
+                      `• Configure persona mode anytime via \`.aimode <mode>\`.`
+            }, { quoted: message });
+        }
+    }
+
+    // 2. DISABLE AI MODE
+    if (sub === 'off' || sub === 'disable' || sub === 'stop') {
+        config.enabled = false;
+        await saveAiConfig(chatId, config);
+        conversationHistory.delete(chatId);
+
+        return sock.sendMessage(chatId, {
+            text: `❌ *AI Mode Deactivated!*\n\n` +
+                  (isGroup
+                      ? `I will no longer reply to mentions or messages in this group.`
+                      : `Automatic replies and media responses in this direct message are now paused.`)
+        }, { quoted: message });
+    }
+
+    // 3. STATUS / INFO
+    if (sub === 'status' || sub === 'info') {
+        const modeObj = MODES[config.mode] || MODES['gen-co'];
+        const statusIcon = config.enabled ? '✅ Enabled' : '❌ Disabled';
+        const levelDesc = DEPTH_LEVELS[config.level] || DEPTH_LEVELS[3];
+
+        let msgText = `*🤖 MISTRAL CONVERSATIONAL AI MODE*\n\n` +
+                      `• *Status:* ${statusIcon}\n` +
+                      `• *Chat Type:* ${isGroup ? 'Group Chat' : 'Private Direct Message'}\n` +
+                      `• *Current Mode:* *${modeObj.name}* (\`${modeObj.slug}\`)\n` +
+                      `• *Tagline:* _${modeObj.tagline}_\n` +
+                      `• *Depth Level:* ${config.level} (${levelDesc})\n\n`;
+
+        if (isGroup) {
+            msgText += `*Group Policy:*\n` +
+                       `Group chats are strictly locked to Conversational Mode (\`gen-co\`) and respond only when mentioned or replied to.`;
+        } else {
+            msgText += `*Private DM Customization:*\n` +
+                       `Use \`.aimode <mode>\` to change persona style or \`.aimode level <1-5>\` to adjust depth.`;
+        }
+
+        return sock.sendMessage(chatId, { text: msgText }, { quoted: message });
+    }
+
+    // 4. RESET HISTORY & SETTINGS
+    if (sub === 'reset') {
+        config.mode = 'gen-co';
+        config.level = 3;
+        await saveAiConfig(chatId, config);
+        conversationHistory.delete(chatId);
+
+        return sock.sendMessage(chatId, {
+            text: `🔄 *AI Mode Reset to Defaults!*\n\n` +
+                  `• Mode reset to *General Conversational* (\`gen-co\`).\n` +
+                  `• Depth level reset to Level 3 (Comprehensive).\n` +
+                  `• Conversation memory cleared.`
+        }, { quoted: message });
+    }
+
+    // 5. DEPTH LEVEL CONFIGURATION (.aimode level <1-5>)
+    if (sub === 'level') {
+        if (isGroup) {
+            return sock.sendMessage(chatId, {
+                text: `⚠️ *Group Restriction*: Group chats are strictly locked to default conversational settings. Depth level adjustment is available in private direct messages only.`
+            }, { quoted: message });
+        }
+
+        const lvl = parseInt(val, 10);
+        if (!lvl || lvl < 1 || lvl > 5) {
+            let lvlList = `*Available Depth Levels (1 - 5):*\n\n`;
+            for (let i = 1; i <= 5; i++) {
+                lvlList += `• *Level ${i}*: ${DEPTH_LEVELS[i]}\n`;
+            }
+            lvlList += `\n*Usage:* \`.aimode level <1-5>\` (e.g. \`.aimode level 2\`)`;
+            return sock.sendMessage(chatId, { text: lvlList }, { quoted: message });
+        }
+
+        config.level = lvl;
+        await saveAiConfig(chatId, config);
+
+        return sock.sendMessage(chatId, {
+            text: `✅ *Depth Level Updated to Level ${lvl}!*\n\n${DEPTH_LEVELS[lvl]}`
+        }, { quoted: message });
+    }
+
+    // 6. PERSONA MODE CONFIGURATION (.aimode mode <slug> OR .aimode <slug>)
+    const targetCandidate = (sub === 'mode' ? val : sub).toLowerCase();
+    const resolvedSlug = MODE_ALIASES[targetCandidate];
+
+    if (resolvedSlug && MODES[resolvedSlug]) {
+        // Enforce group chat restriction
+        if (isGroup) {
+            return sock.sendMessage(chatId, {
+                text: `⚠️ *Group Restriction*: Group chats are strictly restricted to *Conversational Mode* (\`gen-co\`).\n\n` +
+                      `Persona mode configuration (such as \`${resolvedSlug}\`) is only available in private direct messages.`
+            }, { quoted: message });
+        }
+
+        config.mode = resolvedSlug;
+        await saveAiConfig(chatId, config);
+        const modeData = MODES[resolvedSlug];
+
+        return sock.sendMessage(chatId, {
+            text: `✅ *Persona Mode Updated!*\n\n` +
+                  `• *Mode:* *${modeData.name}* (\`${modeData.slug}\`)\n` +
+                  `• *Category:* ${modeData.category}\n` +
+                  `• *Tagline:* _${modeData.tagline}_\n` +
+                  `• *Default Depth:* Level ${modeData.defaultLevel}\n\n` +
+                  `All subsequent private messages will use this persona style.`
+        }, { quoted: message });
+    }
+
+    // 7. DEFAULT HELP MENU
+    let help = `*🤖 MISTRAL CONVERSATIONAL AI MODE*\n\n` +
+               `*Current Chat Status:* ${config.enabled ? '✅ Active' : '❌ Inactive'}\n` +
+               `*Active Mode:* ${MODES[config.mode]?.name || 'General Conversational'} (\`${config.mode}\`)\n` +
+               `*Depth Level:* ${config.level} / 5\n\n` +
+               `*Commands:*\n` +
+               `• \`.aimode on\` - Enable AI Mode for this chat\n` +
+               `• \`.aimode off\` - Disable AI Mode for this chat\n` +
+               `• \`.aimode status\` - View current status & settings\n` +
+               `• \`.aimode reset\` - Reset settings and clear chat memory\n`;
+
+    if (!isGroup) {
+        help += `• \`.aimode <mode>\` - Switch persona mode (DMs only)\n` +
+                `• \`.aimode level <1-5>\` - Adjust response depth level (DMs only)\n\n` +
+                `*🎭 Available Persona Modes (Private DMs):*\n` +
+                `1. \`gen-co\` (or \`general\`) - Balanced daily assistant\n` +
+                `2. \`gen-co-em\` (or \`emoji\`) - Vibrant with emojis\n` +
+                `3. \`prof-tech\` (or \`tech\`) - Analytical engineering consultant\n` +
+                `4. \`socratic\` (or \`guide\`) - Socratic mentor & guided inquiry\n` +
+                `5. \`eli5\` (or \`simple\`) - Explain Like I'm 5 (analogies)\n` +
+                `6. \`concise\` (or \`bullet\`) - Zero fluff, maximum signal\n` +
+                `7. \`code-mentor\` (or \`code\`) - Software architect & code mentor\n` +
+                `8. \`creative\` (or \`story\`) - Imaginative prose & storytelling\n\n` +
+                `*💡 Features in Private DMs:*\n` +
+                `• Automatically responds to all incoming text.\n` +
+                `• Incoming photos, stickers, audio, and documents trigger witty roasts!`;
+    } else {
+        help += `\n*👥 Group Chat Policy:*\n` +
+                `• Restricted strictly to Conversational Mode (\`gen-co\`).\n` +
+                `• Responds only when explicitly mentioned (@bot) or replied to.`;
+    }
+
+    return sock.sendMessage(chatId, { text: help }, { quoted: message });
 }
 
 module.exports = {
     command: 'chatbot',
-    aliases: ['chatbots', 'autochat', 'achat'],
-    category: 'admin',
-    description: 'Enable or disable AI chatbot for the group',
-    usage: '.chatbot <on|off>',
-    groupOnly: true,
-    adminOnly: true,
+    aliases: ['aimode', 'mistral', 'chatgpt', 'chatbots', 'autochat', 'achat'],
+    category: 'ai',
+    description: 'Toggle and configure Mistral Conversational AI mode for private DMs or group chats',
+    usage: '.aimode <on|off|status|mode <slug>|level <1-5>|reset>',
 
-    async handler(sock, message, args, context = {}) {
-    const fetch = require('node-fetch');
-        const chatId = context.chatId || message.key.remoteJid;
-        const match = args.join(' ').toLowerCase();
-
-        if (!match) {
-            await showTyping(sock, chatId);
-            return sock.sendMessage(chatId, {
-                text: `*🤖 CHATBOT SETUP*\n\n` +
-                      `*Storage:* ${HAS_DB ? 'Database' : 'File System'}\n` +
-                      `*APIs:* ${API_ENDPOINTS.length} endpoints with fallback\n\n` +
-                      `*Commands:*\n` +
-                      `• \`.chatbot on\` - Enable chatbot\n` +
-                      `• \`.chatbot off\` - Disable chatbot\n\n` +
-                      `*How it works:*\n` +
-                      `When enabled, bot responds when mentioned or replied to.\n\n` +
-                      `*Features:*\n` +
-                      `• Natural conversations\n` +
-                      `• Remembers context\n` +
-                      `• Hinglish support\n` +
-                      `• Personality-based replies\n` +
-                      `• Auto fallback if API fails`,
-                quoted: message
-            });
-        }
-
-        const data = await loadUserGroupData();
-
-        if (match === 'on') {
-            await showTyping(sock, chatId);
-            if (data.chatbot[chatId]) {
-                return sock.sendMessage(chatId, { 
-                    text: '⚠️ *Chatbot is already enabled for this group*',
-                    quoted: message
-                });
-            }
-            data.chatbot[chatId] = true;
-            await saveUserGroupData(data);
-            console.log(`Chatbot enabled for group ${chatId}`);
-            return sock.sendMessage(chatId, { 
-                text: '✅ *Chatbot enabled!*\n\nMention me or reply to my messages to chat.',
-                quoted: message
-            });
-        }
-
-        if (match === 'off') {
-            await showTyping(sock, chatId);
-            if (!data.chatbot[chatId]) {
-                return sock.sendMessage(chatId, { 
-                    text: '⚠️ *Chatbot is already disabled for this group*',
-                    quoted: message
-                });
-            }
-            delete data.chatbot[chatId];
-            await saveUserGroupData(data);
-            console.log(`Chatbot disabled for group ${chatId}`);
-            return sock.sendMessage(chatId, { 
-                text: '❌ *Chatbot disabled!*\n\nI will no longer respond to mentions.',
-                quoted: message
-            });
-        }
-
-        await showTyping(sock, chatId);
-        return sock.sendMessage(chatId, { 
-            text: '❌ *Invalid command*\n\nUse: `.chatbot on/off`',
-            quoted: message
-        });
-    },
-
+    handler,
     handleChatbotResponse,
-    loadUserGroupData,
-    saveUserGroupData
+    getAiConfig,
+    saveAiConfig,
+    callMistralChat,
+    MODES,
+    MODE_ALIASES,
+    DEPTH_LEVELS
 };

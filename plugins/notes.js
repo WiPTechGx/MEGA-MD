@@ -27,81 +27,81 @@ async function saveUserNotes(userId, notes) {
 
 module.exports = {
   command: 'notes',
-  aliases: ['note'],
+  aliases: ['note', 'save', 'saved'],
   category: 'menu',
-  description: 'Store, view, and delete your personal notes',
-  usage: '.notes <add|all|del|delall> [text|ID]',
+  description: 'Store, view, and delete personal notes or save snippets',
+  usage: '.notes <add|all|del|delall> [text|ID] | .save <text> | reply with .save',
+
   async handler(sock, message, args, context = {}) {
     const chatId = context.chatId || message.key.remoteJid;
     const sender = message.key.participant || message.key.remoteJid;
+
     try {
-      const action = args[0] ? args[0].toLowerCase() : null;
-      const content = args.slice(1).join(" ").trim();
+      const firstArg = args[0] ? args[0].toLowerCase() : null;
+
+      const quoted = message.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+      const quotedText =
+        quoted?.conversation ||
+        quoted?.extendedTextMessage?.text ||
+        quoted?.imageMessage?.caption ||
+        quoted?.videoMessage?.caption ||
+        quoted?.documentMessage?.caption ||
+        '';
 
       const menuText = `
-╭───── *『 NOTES 』* ───◆
-┃ Store notes for later use
+╭───── *『 NOTES & SAVED 』* ───◆
+┃ Store notes & messages for later
 ┃ Storage: ${HAS_DB ? 'Database 🗄️' : 'Memory 📁'}
 ┃
-┃ ● Add Note
-┃    .notes add your text here
+┃ ● Save Note / Message
+┃    .save your text here
+┃    (or reply to any message with .save)
 ┃
-┃ ● Get All Notes
-┃    .notes all
+┃ ● View All Notes
+┃    .notes all (or .save list)
 ┃
 ┃ ● Delete Note
-┃    .notes del noteID
+┃    .notes del <noteID>
 ┃
 ┃ ● Delete All Notes
 ┃    .notes delall
-╰━━━━━━━━━━━━━━━━━──⊷`;
+╰━━━━━━━━━━━━━━━━━──⊷`.trim();
 
-      if (!action) {
-        return await sock.sendMessage(chatId, { text: menuText }, { quoted: message });
-      }
-      if (action === 'add') {
-        if (!content) {
-          return await sock.sendMessage(chatId, {
-            text: "*Please write a note to save.*\nExample: .notes add buy milk"
-          }, { quoted: message });
-        }
-        
-        const userNotes = await getUserNotes(sender);
-        const newID = userNotes.length + 1;
-        userNotes.push({ id: newID, text: content, createdAt: Date.now() });
-        await saveUserNotes(sender, userNotes);
-
-        return await sock.sendMessage(chatId, {
-          text: `✅ Note saved.\nID: ${newID}\nStorage: ${HAS_DB ? 'Database' : 'Memory'}`
-        }, { quoted: message });
-      }
-      if (action === 'all') {
+      // 1. List All Notes
+      if (firstArg === 'all' || firstArg === 'list') {
         const userNotes = await getUserNotes(sender);
         if (userNotes.length === 0) {
           return await sock.sendMessage(chatId, { text: "*You have no notes saved.*" }, { quoted: message });
         }
 
-        const list = userNotes.map(n => `${n.id}. ${n.text}`).join("\n");
+        const list = userNotes.map(n => `*${n.id}.* ${n.text}`).join("\n");
         return await sock.sendMessage(chatId, { 
-          text: `*📝 Your Notes:*\n\n${list}\n\n_Total: ${userNotes.length} notes_` 
+          text: `*📝 Your Saved Notes:*\n\n${list}\n\n_Total: ${userNotes.length} notes_` 
         }, { quoted: message });
       }
-      if (action === 'del') {
-        const id = parseInt(args[1]);
+
+      // 2. Delete Single Note
+      if (firstArg === 'del' || firstArg === 'delete' || firstArg === 'remove') {
+        const id = parseInt(args[1], 10);
         const userNotes = await getUserNotes(sender);
         
         if (!id || !userNotes.find(n => n.id === id)) {
           return await sock.sendMessage(chatId, {
-            text: "Invalid note ID.\nExample: .notes del 1"
+            text: "❌ Invalid note ID.\nExample: .notes del 1"
           }, { quoted: message });
         }
         
-        const filteredNotes = userNotes.filter(n => n.id !== id);
+        const filteredNotes = userNotes.filter(n => n.id !== id).map((item, index) => ({
+          ...item,
+          id: index + 1
+        }));
         await saveUserNotes(sender, filteredNotes);
         
-        return await sock.sendMessage(chatId, { text: `*✅ Note ID ${id} deleted.*` }, { quoted: message });
+        return await sock.sendMessage(chatId, { text: `✅ *Note ID ${id} deleted.*` }, { quoted: message });
       }
-      if (action === 'delall') {
+
+      // 3. Delete All Notes
+      if (firstArg === 'delall' || firstArg === 'clearall' || firstArg === 'wipe') {
         const userNotes = await getUserNotes(sender);
         if (userNotes.length === 0) {
           return await sock.sendMessage(chatId, { text: "*You have no notes to delete.*" }, { quoted: message });
@@ -110,7 +110,29 @@ module.exports = {
         await saveUserNotes(sender, []);
         return await sock.sendMessage(chatId, { text: "*✅ All notes deleted successfully.*" }, { quoted: message });
       }
-      return await sock.sendMessage(chatId, { text: menuText }, { quoted: message });
+
+      // 4. Add Note (either explicit "add" or direct text / quoted text)
+      let textToSave = '';
+      if (firstArg === 'add') {
+        textToSave = args.slice(1).join(" ").trim() || quotedText;
+      } else if (quotedText) {
+        textToSave = quotedText;
+      } else if (args.length > 0) {
+        textToSave = args.join(" ").trim();
+      }
+
+      if (!textToSave) {
+        return await sock.sendMessage(chatId, { text: menuText }, { quoted: message });
+      }
+
+      const userNotes = await getUserNotes(sender);
+      const newID = userNotes.length + 1;
+      userNotes.push({ id: newID, text: textToSave, createdAt: Date.now() });
+      await saveUserNotes(sender, userNotes);
+
+      return await sock.sendMessage(chatId, {
+        text: `✅ *Note saved!*\n\n📝 *ID:* ${newID}\n📄 *Content:* ${textToSave}\n🗄️ *Storage:* ${HAS_DB ? 'Database' : 'Memory'}`
+      }, { quoted: message });
 
     } catch (err) {
       console.error("Notes Command Error:", err);
