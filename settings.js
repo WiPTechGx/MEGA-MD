@@ -68,7 +68,10 @@ const settings = {
   channelLink: "https://whatsapp.com/channel/0029Va8cpObHwXbDoZE9VY3K",
   ytch: "pgwiz",
   newsletterJid: '120363179639202475@newsletter',
-  newsletterName: process.env.BOT_NAME || process.env.BOTNAME || process.env.NEWSLETTER_NAME || "PGWIZ-MD"
+  newsletterName: process.env.BOT_NAME || process.env.BOTNAME || process.env.NEWSLETTER_NAME || "PGWIZ-MD",
+  statusEmojis: process.env.AUTO_STATUS_EMOJIS || process.env.STATUS_EMOJIS || "❤️,🔥,✨,💯,🌟,⚡,😍,👏,💖,🥰,👍,🎉",
+  statusReaction: process.env.AUTO_STATUS_REACTION || process.env.STATUS_REACTION || process.env.AUTO_STATUS_EMOJI || process.env.STATUS_EMOJI || "",
+  autoReactEmojis: process.env.AUTO_REACT_EMOJIS || process.env.AUTOREACT_EMOJIS || ""
 };
 
 if (!process.env.TZ) {
