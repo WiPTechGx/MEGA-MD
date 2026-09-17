@@ -5,9 +5,11 @@ All notable changes to the PGWIZ-MD multi-device WhatsApp bot project are docume
 ## [4.3.0] - 2026-09-17
 
 ### Added
-- **Mistral Conversational AI Mode (`.aimode`, `.chatbot`)**:
-  - Integrated with `https://mistral-conversational.vercel.app/api/chat` using Mistral AI models (`ministral-8b-2512`).
-  - Supports 8 persona modes: `gen-co`, `gen-co-em`, `prof-tech`, `socratic`, `eli5`, `concise`, `code-mentor`, `creative`.
+- **Conversational AI Mode (`.aimode`, `.chatbot`)**:
+  - High-performance conversational AI service with 10 persona modes and 5 depth levels.
+  - Supports 10 persona modes: `gen-co`, `gen-co-em`, `prof-tech`, `socratic`, `eli5`, `concise`, `code-mentor`, `creative`, `zen`, and `medieval`.
+  - Admin & Bot Owner JID targeting (`.aimode <cmd> [jid]`): configure or inspect AI mode for any private DM or group chat via phone number or JID with strict permission validation.
+  - All-in-one long string multi-parameter configuration with flexible argument ordering (e.g. `.aimode default 1 <jid>`, `.aimode on tech 3 <jid>`, `.aimode eli5 2 <jid>`).
   - Supports 5 depth levels: from Level 1 (Ultra-Brief) to Level 5 (Masterclass).
   - Multi-turn bounded conversation memory with automatic pruning.
   - **Private Direct Messages**:
