@@ -47,15 +47,7 @@ module.exports = {
 
       await sock.sendMessage(chatId, {
         text: text.trim(),
-        contextInfo: {
-          forwardingScore: 999,
-          isForwarded: true,
-          forwardedNewsletterMessageInfo: {
-            newsletterJid: settings.newsletterJid || '120363179639202475@newsletter',
-            newsletterName: settings.newsletterName || `${settings.botName || 'PGWIZ-MD'} PERFORMANCE`,
-            serverMessageId: -1
-          }
-        }
+        ...channelInfo
       }, { quoted: message });
 
     } catch (error) {

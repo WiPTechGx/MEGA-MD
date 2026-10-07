@@ -3,17 +3,7 @@ const path = require('path');
 const settings = require('../settings');
 const isOwnerOrSudo = require('../lib/isOwner');
 
-const channelInfo = {
-  contextInfo: {
-    forwardingScore: 999,
-    isForwarded: true,
-    forwardedNewsletterMessageInfo: {
-      newsletterJid: settings.newsletterJid || '120363179639202475@newsletter',
-      newsletterName: settings.newsletterName || settings.botName || 'PGWIZ-MD',
-      serverMessageId: -1
-    }
-  }
-};
+const { channelInfo } = require('../lib/messageConfig');
 
 module.exports = {
   command: 'clearsession',

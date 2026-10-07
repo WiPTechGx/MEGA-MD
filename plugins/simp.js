@@ -1,4 +1,5 @@
 const settings = require('../settings');
+const { channelInfo } = require('../lib/messageConfig');
 // Lazy-loaded: const fetch = require('node-fetch');
 
 module.exports = {
@@ -41,30 +42,14 @@ module.exports = {
             await sock.sendMessage(chatId, {
                 image: imageBuffer,
                 caption: '*your religion is simping*',
-                contextInfo: {
-                    forwardingScore: 1,
-                    isForwarded: true,
-                    forwardedNewsletterMessageInfo: {
-                        newsletterJid: settings.newsletterJid || '120363179639202475@newsletter',
-                        newsletterName: settings.newsletterName || settings.botName || 'PGWIZ-MD',
-                        serverMessageId: -1
-                    }
-                }
+                ...channelInfo
             }, { quoted: message });
 
         } catch (error) {
             console.error('Simp Command Error:', error);
             await sock.sendMessage(chatId, {
                 text: '❌ Sorry, I couldn\'t generate the simp card. Please try again later!',
-                contextInfo: {
-                    forwardingScore: 1,
-                    isForwarded: true,
-                    forwardedNewsletterMessageInfo: {
-                        newsletterJid: settings.newsletterJid || '120363179639202475@newsletter',
-                        newsletterName: settings.newsletterName || settings.botName || 'PGWIZ-MD',
-                        serverMessageId: -1
-                    }
-                }
+                ...channelInfo
             }, { quoted: message });
         }
     }

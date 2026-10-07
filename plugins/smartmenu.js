@@ -134,15 +134,7 @@ module.exports = {
       const messageOptions = {
         image: thumbnail,
         caption: menuText,
-        contextInfo: {
-          forwardingScore: 1,
-          isForwarded: true,
-          forwardedNewsletterMessageInfo: {
-            newsletterJid: settings.newsletterJid || '120363179639202475@newsletter',
-            newsletterName: settings.newsletterName || settings.botName || 'PGWIZ-MD',
-            serverMessageId: -1
-          }
-        }
+        ...channelInfo
       };
 
       await sock.sendMessage(chatId, messageOptions, { quoted: message });

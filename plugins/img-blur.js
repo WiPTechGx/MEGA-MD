@@ -1,4 +1,5 @@
 const settings = require('../settings');
+const { channelInfo } = require('../lib/messageConfig');
 const { downloadMediaMessage } = require('@whiskeysockets/baileys');
 // Lazy-loaded: const sharp = require('sharp');
 
@@ -39,15 +40,7 @@ module.exports = {
       await sock.sendMessage(chatId, {
         image: blurredImage,
         caption: '✨ *Image Blurred Successfully!*',
-        contextInfo: {
-          forwardingScore: 1,
-          isForwarded: true,
-          forwardedNewsletterMessageInfo: {
-            newsletterJid: settings.newsletterJid || '120363179639202475@newsletter',
-            newsletterName: settings.newsletterName || settings.botName || 'PGWIZ-MD',
-            serverMessageId: -1
-          }
-        }
+        ...channelInfo
       }, { quoted: message });
 
     } catch (error) {
