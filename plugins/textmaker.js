@@ -1,6 +1,8 @@
 const settings = require('../settings');
 const mumaker = require('mumaker');
 
+const DIVIDER = '━━━━━━━━━━━━━';
+
 const allTypes = [
     'metallic','ice','snow','impressive','matrix','light','neon','devil',
     'purple','thunder','leaves','1917','arena','hacker','sand',
@@ -14,25 +16,27 @@ module.exports = {
     description: 'Generate styled text with various effects',
     usage: '.ephoto <type> <text>',
 
-    async handler(sock, message, args) {
-        const chatId = message.key.remoteJid;
+    async handler(sock, message, args, context = {}) {
+        const chatId = context.chatId || message.key.remoteJid;
+        const channelInfo = context.channelInfo || {};
+        const prefix = context.usedPrefix || '.';
+        const botName = (settings.botName || 'PGWIZ-MD').toUpperCase();
         const type = args[0]?.toLowerCase();
         const text = args.slice(1).join(' ');
 
         if (!type || !allTypes.includes(type) || !text) {
             let menuText =
-`✨🎨 *EPHOTO TEXT MAKER* 🎨✨
-━━━━━━━━━━━━━━━━━━━
+`*✩ ${botName} TEXT MAKER ✩*
+${DIVIDER}
 🖌️ *Create stunning text styles*
 ⚡ Fast • Stylish • HD Effects
-
-📌 *Usage*
-👉 *.ephoto <type> <text>*
-📖 Example:
-👉 *.ephoto metallic Hello*
-
-━━━━━━━━━━━━━━━━━━━
-🎭 *AVAILABLE STYLES*
+${DIVIDER}
+📌 *Usage:*
+👉 *${prefix}ephoto <type> <text>*
+📖 *Example:*
+👉 *${prefix}ephoto metallic Hello*
+${DIVIDER}
+🎭 *AVAILABLE STYLES:*
 `;
 
             allTypes.forEach((t, i) => {
@@ -40,13 +44,13 @@ module.exports = {
             });
 
             menuText +=
-`━━━━━━━━━━━━━━━━━━━
+`${DIVIDER}
 💡 *Tip:* Use short & clear text for best results
-🤖 Powered by *${settings.botName || 'PGWIZ-MD'}*`;
+${DIVIDER}`;
 
             return await sock.sendMessage(
                 chatId,
-                { text: menuText },
+                { text: menuText, ...channelInfo },
                 { quoted: message }
             );
         }
@@ -84,7 +88,8 @@ module.exports = {
                 chatId,
                 {
                     image: { url: result.image },
-                    caption: `🔥 *GENERATED SUCCESSFULLY* 🔥\n✨ Powered by *${settings.botName || 'PGWIZ-MD'}*`
+                    caption: `*✩ ${botName} TEXT MAKER ✩*\n${DIVIDER}\n🔥 *Status:* Generated successfully\n${DIVIDER}`,
+                    ...channelInfo
                 },
                 { quoted: message }
             );
@@ -93,7 +98,7 @@ module.exports = {
             console.error('Error generating styled text:', error);
             await sock.sendMessage(
                 chatId,
-                { text: `❌ *Generation Failed*\nReason: ${error.message}` },
+                { text: `*✩ ${botName} TEXT MAKER ✩*\n${DIVIDER}\n❌ *Generation Failed:* ${error.message}\n${DIVIDER}`, ...channelInfo },
                 { quoted: message }
             );
         }

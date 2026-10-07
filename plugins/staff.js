@@ -1,3 +1,6 @@
+const settings = require('../settings');
+const DIVIDER = '━━━━━━━━━━━━━';
+
 module.exports = {
   command: 'staff',
   aliases: ['admins', 'adminlist'],
@@ -8,6 +11,7 @@ module.exports = {
   
   async handler(sock, message, args, context) {
     const { chatId, channelInfo } = context;
+    const botName = (settings.botName || 'PGWIZ-MD').toUpperCase();
     
     try {
       const groupMetadata = await sock.groupMetadata(chatId);
@@ -21,17 +25,18 @@ module.exports = {
       
       const participants = groupMetadata.participants;
       const groupAdmins = participants.filter(p => p.admin);
-      const listAdmin = groupAdmins.map((v, i) => `${i + 1}. @${v.id.split('@')[0]}`).join('\n▢ ');
+      const listAdmin = groupAdmins.map((v, i) => `${i + 1}. @${v.id.split('@')[0]}`).join('\n');
 
       const owner = groupMetadata.owner || groupAdmins.find(p => p.admin === 'superadmin')?.id || chatId.split('-')[0] + '@s.whatsapp.net';
 
-      const text = `
-≡ *GROUP ADMINS* _${groupMetadata.subject}_
-
-┌─⊷ *ADMINS*
-▢ ${listAdmin}
-└───────────
-`.trim();
+      const text = `*✩ ${botName} GROUP ADMINS ✩*
+${DIVIDER}
+👥 *Group:* ${groupMetadata.subject}
+👑 *Owner:* @${owner.split('@')[0]}
+${DIVIDER}
+👮 *Admins (${groupAdmins.length}):*
+${listAdmin || 'None'}
+${DIVIDER}`.trim();
 
       await sock.sendMessage(chatId, {
         image: { url: pp },
@@ -43,7 +48,7 @@ module.exports = {
     } catch (error) {
       console.error('Error in staff command:', error);
       await sock.sendMessage(chatId, { 
-        text: 'Failed to get admin list!',
+        text: `*✩ ${botName} GROUP ADMINS ✩*\n${DIVIDER}\n❌ Failed to get admin list!\n${DIVIDER}`,
         ...channelInfo
       }, { quoted: message });
     }

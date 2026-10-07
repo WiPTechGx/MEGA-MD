@@ -93,7 +93,13 @@ ${DIVIDER}`;
     // 2. Full Categorized Menu
     const uptimeText = getUptimeString();
     const timeText = formatTime();
-    const totalPlugins = commandHandler.commands.size;
+    const totalPlugins = commandHandler.commands.size || (() => {
+      try {
+        return fs.readdirSync(path.join(__dirname, '../plugins')).filter(f => f.endsWith('.js')).length;
+      } catch {
+        return 227;
+      }
+    })();
 
     let text = `*✩ ${botName} MENU ✩*
 ${DIVIDER}

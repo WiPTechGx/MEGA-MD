@@ -1,3 +1,6 @@
+const settings = require('../settings');
+const DIVIDER = '━━━━━━━━━━━━━';
+
 module.exports = {
   command: 'groupinfo',
   aliases: ['ginfo', 'gcinfo', 'infogroup'],
@@ -8,6 +11,7 @@ module.exports = {
   
   async handler(sock, message, args, context) {
     const { chatId, channelInfo } = context;
+    const botName = (settings.botName || 'PGWIZ-MD').toUpperCase();
     
     try {
       const groupMetadata = await sock.groupMetadata(chatId);
@@ -25,22 +29,19 @@ module.exports = {
       
       const owner = groupMetadata.owner || groupAdmins.find(p => p.admin === 'superadmin')?.id || chatId.split('-')[0] + '@s.whatsapp.net';
       
-      const text = `
-┌──「 *INFO GROUP* 」
-▢ *♻️ID:*
-   • ${groupMetadata.id}
-▢ *🔖NAME* : 
-• ${groupMetadata.subject}
-▢ *👥Members* :
-• ${participants.length}
-▢ *🤿Group Owner:*
-• @${owner.split('@')[0]}
-▢ *🕵🏻‍♂️Admins:*
-${listAdmin}
-
-▢ *📌Description* :
-   • ${groupMetadata.desc?.toString() || 'No description'}
-`.trim();
+      const text = `*✩ ${botName} GROUP INFO ✩*
+${DIVIDER}
+👥 *Group:* ${groupMetadata.subject}
+🆔 *ID:* ${groupMetadata.id}
+👑 *Owner:* @${owner.split('@')[0]}
+👥 *Members:* ${participants.length}
+${DIVIDER}
+👮 *Admins:*
+${listAdmin || 'None'}
+${DIVIDER}
+📝 *Description:*
+${groupMetadata.desc?.toString() || 'No description'}
+${DIVIDER}`.trim();
 
       await sock.sendMessage(chatId, {
         image: { url: pp },
@@ -52,7 +53,7 @@ ${listAdmin}
     } catch (error) {
       console.error('Error in groupinfo command:', error);
       await sock.sendMessage(chatId, { 
-        text: 'Failed to get group info!',
+        text: `*✩ ${botName} GROUP INFO ✩*\n${DIVIDER}\n❌ Failed to get group info!\n${DIVIDER}`,
         ...channelInfo
       }, { quoted: message });
     }

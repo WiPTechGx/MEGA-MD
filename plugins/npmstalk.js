@@ -1,4 +1,7 @@
 const Qasim = require('api-qasim');
+const settings = require('../settings');
+const DIVIDER = '━━━━━━━━━━━━━';
+
 module.exports = {
   command: 'npmstalk',
   aliases: ['npmstlk'],
@@ -7,43 +10,51 @@ module.exports = {
   usage: '.npmstalk <package-name>',
 
   async handler(sock, message, args, context = {}) {
-    const { chatId, usedPrefix, command } = context;
+    const { chatId, usedPrefix, channelInfo } = context;
+    const botName = (settings.botName || 'PGWIZ-MD').toUpperCase();
+    const prefix = usedPrefix || '.';
 
     if (!args[0]) {
       return await sock.sendMessage(chatId, { 
-        text: `✳️ Please provide an NPM package name.\n\nExample:\n.npmstalk axios` 
+        text: `*✩ ${botName} NPM STALK ✩*\n${DIVIDER}\n⚠️ Please provide an NPM package name.\n\nExample:\n${prefix}npmstalk axios\n${DIVIDER}`,
+        ...channelInfo
       }, { quoted: message });
     }
 
     try {
-
       let res = await Qasim.npmStalk(args[0]);
 
       if (!res || !res.result) {
-        throw 'Package not found or API error.';
+        throw new Error('Package not found or API error.');
       }
 
       const data = res.result;
       const authorName = (typeof data.author === 'object') ? data.author.name : (data.author || 'Unknown');
-      
       const versionCount = data.versions ? Object.keys(data.versions).length : 0;
 
-      let te = `┌──「 *NPM PACKAGE INFO* 」\n`;
-      te += `▢ *🔖Name:* ${data.name}\n`;
-      te += `▢ *🔖Creator:* ${authorName}\n`;
-      te += `▢ *👥Total Versions:* ${versionCount}\n`;
-      te += `▢ *📌Description:* ${data.description || 'No description'}\n`;
-      te += `▢ *🧩Repository:* ${data.repository?.url || 'No repository available'}\n`;
-      te += `▢ *🌍Homepage:* ${data.homepage || 'No homepage available'}\n`;
-      te += `▢ *🏷️Latest:* ${data['dist-tags']?.latest || 'N/A'}\n`;
-      te += `▢ *🔗Link:* https://npmjs.com/package/${data.name}\n`;
-      te += `└────────────`;
+      const te = `*✩ ${botName} NPM INFO ✩*
+${DIVIDER}
+📦 *Package:* ${data.name}
+👤 *Author:* ${authorName}
+🏷️ *Version:* ${data['dist-tags']?.latest || 'N/A'}
+🔢 *Versions:* ${versionCount}
+${DIVIDER}
+📝 *Description:*
+${data.description || 'No description'}
+${DIVIDER}
+🧩 *Repository:* ${data.repository?.url || 'None'}
+🌐 *Homepage:* ${data.homepage || 'None'}
+🔗 *Link:* https://npmjs.com/package/${data.name}
+${DIVIDER}`;
 
-      await sock.sendMessage(chatId, { text: te }, { quoted: message });
+      await sock.sendMessage(chatId, { text: te, ...channelInfo }, { quoted: message });
 
     } catch (error) {
       console.error('NPM Stalk Error:', error);
-      await sock.sendMessage(chatId, { text: `✳️ Error: Package not found or API issue.` }, { quoted: message });
+      await sock.sendMessage(chatId, { 
+        text: `*✩ ${botName} NPM INFO ✩*\n${DIVIDER}\n❌ Error: Package not found or API issue.\n${DIVIDER}`,
+        ...channelInfo
+      }, { quoted: message });
     }
   }
 };
