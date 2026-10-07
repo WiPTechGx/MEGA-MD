@@ -1,10 +1,13 @@
 const store = require('../lib/lightweight_store');
+const settings = require('../settings');
 
 const MONGO_URL = process.env.MONGO_URL;
 const POSTGRES_URL = process.env.POSTGRES_URL;
 const MYSQL_URL = process.env.MYSQL_URL;
 const SQLITE_URL = process.env.DB_URL;
 const HAS_DB = !!(MONGO_URL || POSTGRES_URL || MYSQL_URL || SQLITE_URL);
+
+const DIVIDER = '━━━━━━━━━━━━━';
 
 let notesDB = {};
 
@@ -35,6 +38,7 @@ module.exports = {
   async handler(sock, message, args, context = {}) {
     const chatId = context.chatId || message.key.remoteJid;
     const sender = message.key.participant || message.key.remoteJid;
+    const botName = (settings.botName || 'PGWIZ-MD').toUpperCase();
 
     try {
       const firstArg = args[0] ? args[0].toLowerCase() : null;
@@ -48,24 +52,19 @@ module.exports = {
         quoted?.documentMessage?.caption ||
         '';
 
-      const menuText = `
-╭───── *『 NOTES & SAVED 』* ───◆
-┃ Store notes & messages for later
-┃ Storage: ${HAS_DB ? 'Database 🗄️' : 'Memory 📁'}
-┃
-┃ ● Save Note / Message
-┃    .save your text here
-┃    (or reply to any message with .save)
-┃
-┃ ● View All Notes
-┃    .notes all (or .save list)
-┃
-┃ ● Delete Note
-┃    .notes del <noteID>
-┃
-┃ ● Delete All Notes
-┃    .notes delall
-╰━━━━━━━━━━━━━━━━━──⊷`.trim();
+      const menuText = `*✩ ${botName} NOTES ✩*
+${DIVIDER}
+📝 *Storage:* ${HAS_DB ? 'Database' : 'Local Store'}
+${DIVIDER}
+📌 *Save Note:*
+• \`.save <text>\` (or reply with \`.save\`)
+📋 *View Notes:*
+• \`.notes all\` (or \`.save list\`)
+🗑️ *Delete Note:*
+• \`.notes del <id>\`
+🧹 *Clear All Notes:*
+• \`.notes delall\`
+${DIVIDER}`;
 
       // 1. List All Notes
       if (firstArg === 'all' || firstArg === 'list') {

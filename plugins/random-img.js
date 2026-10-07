@@ -1,4 +1,7 @@
 // Lazy-loaded: const fetch = require('node-fetch');
+const settings = require('../settings');
+
+const DIVIDER = '━━━━━━━━━━━━━';
 
 const imageUrls = {
     chinese: 'https://raw.githubusercontent.com/pgwiz/GLOBAL-XMD/master/src/media/tiktokpics/china.json',
@@ -54,23 +57,23 @@ module.exports = {
     description: 'Send 3 random images for a given category',
     usage: '.images <category>',
     async handler(sock, message, args, context = {}) {
-    const fetch = require('node-fetch');
+        const fetch = require('node-fetch');
         const chatId = context.chatId || message.key.remoteJid;
         const category = (args[0] || '').toLowerCase();
+        const botName = (settings.botName || 'PGWIZ-MD').toUpperCase();
+
         if (!category || !imageUrls[category]) {
             const categoriesList = Object.keys(imageUrls)
-                .map((c, i) => `┃ ${i + 1}. ${c}`)
+                .map((c) => `• \`${c}\``)
                 .join('\n');
 
-            const menuText = `
-╭──── *『 IMAGES 』* ──◆
-┃ Available Categories:
+            const menuText = `*✩ ${botName} IMAGES ✩*
+${DIVIDER}
+🖼️ *Available Categories:*
 ${categoriesList}
-┃
-┃ *Usage example:*
-┃   .images cat
-╰━━━━━━━━━━━━━━────⊷
-            `.trim();
+${DIVIDER}
+💡 *Usage:* \`.images <category>\`
+${DIVIDER}`;
             return await sock.sendMessage(chatId, { text: menuText }, { quoted: message });
         }
         try {

@@ -36,17 +36,21 @@ module.exports = {
 
             const getSt = (val) => val ? '✅' : '❌';
 
-            let menuText = `╭━〔 *PGWIZ SETTINGS* 〕━┈\n┃\n`;
-            menuText += `┃ 👤 *User:* @${cleanJid(senderId)}\n`;
-            menuText += `┃ 🤖 *Mode:* ${botMode.toUpperCase()}\n`;
-            menuText += `┃\n┣━〔 *GLOBAL CONFIG* 〕━┈\n`;
-            menuText += `┃ ${getSt(autoStatus?.enabled)} *Auto Status*\n`;
-            menuText += `┃ ${getSt(autoread?.enabled)} *Auto Read*\n`;
-            menuText += `┃ ${getSt(autotyping?.enabled)} *Auto Typing*\n`;
-            menuText += `┃ ${getSt(pmblocker?.enabled)} *PM Blocker*\n`;
-            menuText += `┃ ${getSt(anticall?.enabled)} *Anti Call*\n`;
-            menuText += `┃ ${getSt(autoReaction)} *Auto Reaction*\n`;
-            menuText += `┃\n`;
+            const botName = (require('../settings').botName || 'PGWIZ-MD').toUpperCase();
+            const DIVIDER = '━━━━━━━━━━━━━';
+
+            let menuText = `*✩ ${botName} SETTINGS ✩*\n${DIVIDER}\n`;
+            menuText += `👤 *User:* @${cleanJid(senderId)}\n`;
+            menuText += `🤖 *Mode:* ${botMode.toUpperCase()}\n`;
+            menuText += `${DIVIDER}\n`;
+            menuText += `⚙️ *GLOBAL CONFIG:*\n`;
+            menuText += `${getSt(autoStatus?.enabled)} *Auto Status*\n`;
+            menuText += `${getSt(autoread?.enabled)} *Auto Read*\n`;
+            menuText += `${getSt(autotyping?.enabled)} *Auto Typing*\n`;
+            menuText += `${getSt(pmblocker?.enabled)} *PM Blocker*\n`;
+            menuText += `${getSt(anticall?.enabled)} *Anti Call*\n`;
+            menuText += `${getSt(autoReaction)} *Auto Reaction*\n`;
+            menuText += `${DIVIDER}\n`;
 
             if (isGroup) {
                 const groupSettings = await store.getAllSettings(chatId);
@@ -58,18 +62,17 @@ module.exports = {
                 const groupWelcome = groupSettings.welcome || false;
                 const groupGoodbye = groupSettings.goodbye || false;
 
-                menuText += `┣━〔 *GROUP CONFIG* 〕━┈\n`;
-                menuText += `┃ ${getSt(groupAntilink.enabled)} *Antilink*\n`;
-                menuText += `┃ ${getSt(groupBadword.enabled)} *Antibadword*\n`;
-                menuText += `┃ ${getSt(groupAntitag.enabled)} *Antitag*\n`;
-                menuText += `┃ ${getSt(groupChatbot)} *Chatbot*\n`;
-                menuText += `┃ ${getSt(groupWelcome)} *Welcome*\n`;
-                menuText += `┃ ${getSt(groupGoodbye)} *Goodbye*\n`;
+                menuText += `👥 *GROUP CONFIG:*\n`;
+                menuText += `${getSt(groupAntilink.enabled)} *Antilink*\n`;
+                menuText += `${getSt(groupBadword.enabled)} *Antibadword*\n`;
+                menuText += `${getSt(groupAntitag.enabled)} *Antitag*\n`;
+                menuText += `${getSt(groupChatbot)} *Chatbot*\n`;
+                menuText += `${getSt(groupWelcome)} *Welcome*\n`;
+                menuText += `${getSt(groupGoodbye)} *Goodbye*\n`;
+                menuText += `${DIVIDER}`;
             } else {
-                menuText += `┃ 💡 *Note:* _Use in group for group configs._\n`;
+                menuText += `💡 *Note:* _Run in group to view group configs._\n${DIVIDER}`;
             }
-
-            menuText += `┃\n╰━━━━━━━━━━━━━━━━┈`;
 
             await sock.sendMessage(chatId, { 
                 text: menuText,

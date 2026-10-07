@@ -1,235 +1,126 @@
-/*****************************************************************************
- *                                                                           *
- *                     Developed By pgwiz                                *
- *                                                                           *
- *  🌐  GitHub   : https://github.com/pgwiz                         *
- *  ▶️  YouTube  : https://youtube.com/@pgwiz                       *
- *  💬  WhatsApp : https://whatsapp.com/channel/0029Va8cpObHwXbDoZE9VY3K     *
- *                                                                           *
- *    © 2026 pgwiz. All rights reserved.                            *
- *                                                                           *
- *    Description: This file is part of the PGWIZ-MD Project.                 *
- *                 Unauthorized copying or distribution is prohibited.       *
- *                                                                           *
- *****************************************************************************/
-
-
 const settings = require('../settings');
 const commandHandler = require('../lib/commandHandler');
 const path = require('path');
 const fs = require('fs');
+
+const DIVIDER = '━━━━━━━━━━━━━';
+
 function formatTime() {
-    const now = new Date();
-    const options = { 
-        hour: '2-digit', 
-        minute: '2-digit',
-        hour12: false,
-        timeZone: settings.timeZone || 'UTC'
-    };
-    return now.toLocaleTimeString('en-US', options);
+    try {
+        const now = new Date();
+        const options = { 
+            hour: 'numeric', 
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: true,
+            timeZone: settings.timeZone || 'Africa/Nairobi'
+        };
+        return now.toLocaleTimeString('en-US', options);
+    } catch {
+        return new Date().toLocaleTimeString('en-US');
+    }
 }
 
-const menuStyles = [
-  {
-    render({ title, info, categories, prefix }) {
-      let t = `╭━━『 *PGWIZ MENU* 』━⬣\n`;
-      t += `┃ ✨ *Bot: ${info.bot}*\n`;
-      t += `┃ 🔧 *Prefix: ${info.prefix}*\n`;
-      t += `┃ 📦 *Plugin: ${info.total}*\n`;
-      t += `┃ 💎 *Version: ${info.version}*\n`;
-      t += `┃ ⏰ *Time: ${info.time}*\n`;
+function getUptimeString() {
+    let uptime = Math.floor(process.uptime());
+    const days = Math.floor(uptime / 86400);
+    uptime %= 86400;
+    const hours = Math.floor(uptime / 3600);
+    uptime %= 3600;
+    const minutes = Math.floor(uptime / 60);
+    const seconds = uptime % 60;
 
-      for (const [cat, cmds] of categories) {
-        t += `┃━━━ *${cat.toUpperCase()}* ━✦\n`;
-        for (const c of cmds)
-          t += `┃ ➤ ${prefix}${c}\n`;
-      }
-      t += `╰━━━━━━━━━━━━━⬣`;
-      return t;
-    }
-  },
-
-  {
-    render({ title, info, categories, prefix }) {
-      let t = `◈╭─❍「 *PGWIZ MENU* 」❍\n`;
-      t += `◈├• 🌟 *Bot: ${info.bot}*\n`;
-      t += `◈├• ⚙️ *Prefix: ${info.prefix}*\n`;
-      t += `◈├• 🍫 *Plugins: ${info.total}*\n`;
-      t += `◈├• 💎 *Version: ${info.version}*\n`;
-      t += `◈├• ⏰ *Time: ${info.time}*\n`;
-
-      for (const [cat, cmds] of categories) {
-        t += `◈├─❍「 *${cat.toUpperCase()}* 」❍\n`;
-        for (const c of cmds)
-          t += `◈├• ${prefix}${c}\n`;
-      }
-      t += `◈╰──★─☆──♪♪─❍`;
-      return t;
-    }
-  },
-
-  {
-    render({ title, info, categories, prefix }) {
-      let t = `┏━━━━ *PGWIZ MENU* ━━━┓\n`;
-      t += `┃• *Bot : ${info.bot}*\n`;
-      t += `┃• *Prefixes : ${info.prefix}*\n`;
-      t += `┃• *Plugins : ${info.total}*\n`;
-      t += `┃• *Version : ${info.version}*\n`;
-      t += `┃• *Time : ${info.time}*\n`;
-
-      for (const [cat, cmds] of categories) {
-        t += `┃━━━━ *${cat.toUpperCase()}* ━━◆\n`;
-        for (const c of cmds)
-          t += `┃ ▸ ${prefix}${c}\n`;
-      }
-      t += `┗━━━━━━━━━━━━━━━┛`;
-      return t;
-    }
-  },
-
-  {
-    render({ title, info, categories, prefix }) {
-      let t = `✦═══ *PGWIZ MENU* ═══✦\n`;
-      t += `║➩ *Bot: ${info.bot}*\n`;
-      t += `║➩ *Prefixes: ${info.prefix}*\n`;
-      t += `║➩ *Plugins: ${info.total}*\n`;
-      t += `║➩ *Version: ${info.version}*\n`;
-      t += `║➩ *Time: ${info.time}*\n`;
-
-      for (const [cat, cmds] of categories) {
-        t += `║══ *${cat.toUpperCase()}* ══✧\n`;
-        for (const c of cmds)
-          t += `║ ✦ ${prefix}${c}\n`;
-      }
-      t += `✦══════════════✦`;
-      return t;
-    }
-  },
-
-  {
-    render({ title, info, categories, prefix }) {
-      let t = `❀━━━ *PGWIZ MENU* ━━━❀\n`;
-      t += `┃☞ *Bot: ${info.bot}*\n`;
-      t += `┃☞ *Prefixes: ${info.prefix}*\n`;
-      t += `┃☞ *Plugins: ${info.total}*\n`;
-      t += `┃☞ *Version: ${info.version}*\n`;
-      t += `┃☞ *Time: ${info.time}*\n`;
-
-      for (const [cat, cmds] of categories) {
-        t += `┃━━━〔 *${cat.toUpperCase()}* 〕━❀\n`;
-        for (const c of cmds)
-          t += `┃☞ ${prefix}${c}\n`;
-      }
-      t += `❀━━━━━━━━━━━━━━❀`;
-      return t;
-    }
-  },
-
-  {
-    render({ title, info, categories, prefix }) {
-      let t = `◆━━━ *PGWIZ MENU* ━━━◆\n`;
-      t += `┃ ¤ *Bot: ${info.bot}*\n`;
-      t += `┃ ¤ *Prefixes: ${info.prefix}*\n`;
-      t += `┃ ¤ *Plugins: ${info.total}*\n`;
-      t += `┃ ¤ *Version: ${info.version}*\n`;
-      t += `┃ ¤ *Time: ${info.time}*\n`;
-      for (const [cat, cmds] of categories) {
-        t += `┃━━ *${cat.toUpperCase()}* ━━◆◆\n`;
-        for (const c of cmds)
-          t += `┃ ¤ ${prefix}${c}\n`;
-      }
-      t += `◆━━━━━━━━━━━━━━━━◆`;
-      return t;
-    }
-  },
-
-  {
-    render({ title, info, categories, prefix }) {
-      let t = `╭───⬣ *PGWIZ MENU* ──⬣\n`;
-      t += ` | ● *Bot: ${info.bot}*\n`;
-      t += ` | ● *Prefixes: ${info.prefix}*\n`;
-      t += ` | ● *Plugins: ${info.total}*\n`;
-      t += ` | ● *Version: ${info.version}*\n`;
-      t += ` | ● *Time: ${info.time}*\n`;
-      for (const [cat, cmds] of categories) {
-        t += ` |───⬣ *${cat.toUpperCase()}* ──⬣\n`;
-        for (const c of cmds)
-          t += ` | ● ${prefix}${c}\n`;
-      }
-      t += `╰──────────⬣`;
-      return t;
-    }
-  }
-];
-
-const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+    const parts = [];
+    if (days) parts.push(`${days}d`);
+    if (hours) parts.push(`${hours}h`);
+    if (minutes) parts.push(`${minutes}m`);
+    if (seconds || parts.length === 0) parts.push(`${seconds}s`);
+    return parts.join(' ');
+}
 
 module.exports = {
   command: 'menu',
   aliases: ['help', 'commands', 'h', 'list'],
   category: 'general',
-  description: 'Show all commands',
+  description: 'Show bot commands and categorized menu',
   usage: '.menu [command]',
 
-  async handler(sock, message, args, context) {
-    const { chatId, channelInfo } = context;
-    const prefix = settings.prefixes[0];
+  async handler(sock, message, args, context = {}) {
+    const chatId = context.chatId || message.key.remoteJid;
+    const channelInfo = context.channelInfo || {};
+    const prefix = settings.prefixes ? settings.prefixes[0] : '.';
+    const botName = (settings.botName || 'PGWIZ-MD').toUpperCase();
+    const version = settings.version || '5.2.0';
     const imagePath = path.join(__dirname, '../assets/bot_image.jpg');
 
+    // 1. Single Command Info Lookup
     if (args.length) {
       const searchTerm = args[0].toLowerCase();
       
       let cmd = commandHandler.commands.get(searchTerm);
-      
       if (!cmd && commandHandler.aliases.has(searchTerm)) {
         const mainCommand = commandHandler.aliases.get(searchTerm);
         cmd = commandHandler.commands.get(mainCommand);
       }
       
       if (!cmd) {
-        return sock.sendMessage(chatId, { 
-          text: `❌ Command "${args[0]}" not found.\n\nUse ${prefix}menu to see all commands.`,
+        return await sock.sendMessage(chatId, { 
+          text: `*✩ ${botName} HELP ✩*\n${DIVIDER}\n❌ Command *${args[0]}* not found.\nUse *${prefix}menu* to see all commands.\n${DIVIDER}`,
           ...channelInfo
         }, { quoted: message });
       }
 
-      const text = 
-`╭━━━━━━━━━━━━━━⬣
-┃ 📌 *COMMAND INFO*
-┃
-┃ ⚡ *Command:* ${prefix}${cmd.command}
-┃ 📝 *Desc:* ${cmd.description || 'No description'}
-┃ 📖 *Usage:* ${cmd.usage || `${prefix}${cmd.command}`}
-┃ 🏷️ *Category:* ${cmd.category || 'misc'}
-┃ 🔖 *Aliases:* ${cmd.aliases?.length ? cmd.aliases.map(a => prefix + a).join(', ') : 'None'}
-┃
-╰━━━━━━━━━━━━━━⬣`;
+      const text = `*✩ ${botName} COMMAND INFO ✩*
+${DIVIDER}
+⚡ *Command:* ${prefix}${cmd.command}
+📝 *Description:* ${cmd.description || 'No description provided'}
+📖 *Usage:* ${cmd.usage || `${prefix}${cmd.command}`}
+🏷️ *Category:* ${cmd.category || 'general'}
+🔖 *Aliases:* ${cmd.aliases?.length ? cmd.aliases.map(a => prefix + a).join(', ') : 'None'}
+${DIVIDER}`;
 
       if (fs.existsSync(imagePath)) {
-        return sock.sendMessage(chatId, {
+        return await sock.sendMessage(chatId, {
           image: { url: imagePath },
           caption: text,
           ...channelInfo
         }, { quoted: message });
       }
 
-      return sock.sendMessage(chatId, { text, ...channelInfo }, { quoted: message });
+      return await sock.sendMessage(chatId, { text, ...channelInfo }, { quoted: message });
     }
 
-    const style = pick(menuStyles);
+    // 2. Full Categorized Menu
+    const uptimeText = getUptimeString();
+    const timeText = formatTime();
+    const totalPlugins = commandHandler.commands.size;
 
-    const text = style.render({
-      title: settings.botName,
-      prefix,
-      info: {
-        bot: settings.botName,
-        prefix: settings.prefixes.join(', '),
-        total: commandHandler.commands.size,
-        version: settings.version || "5.0.0",
-        time: formatTime()
-      },
-      categories: commandHandler.categories
-    });
+    let text = `*✩ ${botName} MENU ✩*
+${DIVIDER}
+🟢 *Status:* ACTIVE
+⏱️ *Uptime:* ${uptimeText}
+🔌 *Plugins:* ${totalPlugins}
+⚙️ *Prefix:* ${prefix}
+🕐 *Time:* ${timeText}
+🤖 *Version:* ${version}
+${DIVIDER}\n\n`;
+
+    const categories = Array.from(commandHandler.categories.keys()).sort();
+
+    for (const cat of categories) {
+      const cmds = commandHandler.categories.get(cat) || [];
+      if (cmds.length === 0) continue;
+
+      text += `*✩ ${cat.toUpperCase()} ✩*\n${DIVIDER}\n`;
+      for (const c of cmds) {
+        const isOff = commandHandler.disabledCommands.has(c.toLowerCase());
+        const dot = isOff ? '🔴' : '🟢';
+        text += `${dot} *${prefix}${c}*\n`;
+      }
+      text += `${DIVIDER}\n\n`;
+    }
+
+    text = text.trim();
 
     if (fs.existsSync(imagePath)) {
       await sock.sendMessage(chatId, {
@@ -242,18 +133,3 @@ module.exports = {
     }
   }
 };
-
-/*****************************************************************************
- *                                                                           *
- *                     Developed By pgwiz                                *
- *                                                                           *
- *  🌐  GitHub   : https://github.com/pgwiz                         *
- *  ▶️  YouTube  : https://youtube.com/@pgwiz                       *
- *  💬  WhatsApp : https://whatsapp.com/channel/0029Va8cpObHwXbDoZE9VY3K     *
- *                                                                           *
- *    © 2026 pgwiz. All rights reserved.                            *
- *                                                                           *
- *    Description: This file is part of the PGWIZ-MD Project.                 *
- *                 Unauthorized copying or distribution is prohibited.       *
- *                                                                           *
- *****************************************************************************/

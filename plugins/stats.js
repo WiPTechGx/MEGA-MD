@@ -1,21 +1,7 @@
-/*****************************************************************************
- *                                                                           *
- *                     Developed By pgwiz                                *
- *                                                                           *
- *  🌐  GitHub   : https://github.com/pgwiz                         *
- *  ▶️  YouTube  : https://youtube.com/@pgwiz                       *
- *  💬  WhatsApp : https://whatsapp.com/channel/0029Va8cpObHwXbDoZE9VY3K     *
- *                                                                           *
- *    © 2026 pgwiz. All rights reserved.                            *
- *                                                                           *
- *    Description: This file is part of the PGWIZ-MD Project.                 *
- *                 Unauthorized copying or distribution is prohibited.       *
- *                                                                           *
- *****************************************************************************/
-
-
 const CommandHandler = require('../lib/commandHandler');
 const settings = require("../settings");
+
+const DIVIDER = '━━━━━━━━━━━━━';
 
 module.exports = {
   command: 'perf',
@@ -27,23 +13,27 @@ module.exports = {
 
   async handler(sock, message, args, context = {}) {
     const chatId = context.chatId || message.key.remoteJid;
+    const channelInfo = context.channelInfo || {};
+    const botName = (settings.botName || 'PGWIZ-MD').toUpperCase();
 
     try {
       const report = CommandHandler.getDiagnostics();
 
       if (!report || report.length === 0) {
-        return await sock.sendMessage(chatId, { text: '_No performance data collected yet._' }, { quoted: message });
+        return await sock.sendMessage(chatId, {
+          text: `*✩ ${botName} PERFORMANCE ✩*\n${DIVIDER}\n_No performance data collected yet._\n${DIVIDER}`,
+          ...channelInfo
+        }, { quoted: message });
       }
 
-      let text = `📊 *PLUGINS PERFORMANCE*\n\n`;
+      let text = `*✩ ${botName} PERFORMANCE ✩*\n${DIVIDER}\n`;
 
-      report.forEach((cmd, index) => {
-        const errorText = cmd.errors > 0 ? `❗ Errors: ${cmd.errors}` : `✅ Smooth`;
-        text += `${index + 1}. *${cmd.command.toUpperCase()}*\n`;
-        text += `   ↳ Calls: ${cmd.usage}\n`;
-        text += `   ↳ Latency: ${cmd.average_speed}\n`;
-        text += `   ↳ Status: ${errorText}\n\n`;
+      report.slice(0, 20).forEach((cmd) => {
+        const errorText = cmd.errors > 0 ? `🔴 ${cmd.errors} err` : `🟢 Optimal`;
+        text += `⚡ *${cmd.command.toUpperCase()}*\n`;
+        text += `• Calls: ${cmd.usage} | Avg: ${cmd.average_speed} | ${errorText}\n\n`;
       });
+      text += `${DIVIDER}`;
 
       await sock.sendMessage(chatId, {
         text: text.trim(),
@@ -56,19 +46,3 @@ module.exports = {
     }
   }
 };
-
-/*****************************************************************************
- *                                                                           *
- *                     Developed By pgwiz                                *
- *                                                                           *
- *  🌐  GitHub   : https://github.com/pgwiz                         *
- *  ▶️  YouTube  : https://youtube.com/@pgwiz                       *
- *  💬  WhatsApp : https://whatsapp.com/channel/0029Va8cpObHwXbDoZE9VY3K     *
- *                                                                           *
- *    © 2026 pgwiz. All rights reserved.                            *
- *                                                                           *
- *    Description: This file is part of the PGWIZ-MD Project.                 *
- *                 Unauthorized copying or distribution is prohibited.       *
- *                                                                           *
- *****************************************************************************/
-
